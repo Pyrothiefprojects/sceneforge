@@ -44,11 +44,12 @@ const TransitionPlayer = (() => {
                         return;
                     }
 
+                    const frameUrl = frames[i];
                     const img = images[i];
                     i++;
 
                     if (targetType === 'canvas') {
-                        Canvas.loadImage(img.src).then(() => {
+                        Canvas.loadImage(frameUrl).then(() => {
                             if (anim.cancelled) { resolve(); return; }
                             anim.timer = setTimeout(showNext, duration);
                         });
