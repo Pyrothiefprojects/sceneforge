@@ -28,7 +28,6 @@ const c = crypto.createCipheriv('aes-256-gcm', dk, iv);
 const out = Buffer.concat([c.update(data), c.final()]);
 const tag = c.getAuthTag();
 
-const outputFile = inputFile + '.enc';
-fs.writeFileSync(outputFile, Buffer.concat([iv, tag, out]));
+fs.writeFileSync(inputFile, Buffer.concat([iv, tag, out]));
 
-console.log(`${inputFile} -> ${outputFile} (${data.length} -> ${iv.length + tag.length + out.length})`);
+console.log(`${inputFile} (${data.length} -> ${iv.length + tag.length + out.length})`);

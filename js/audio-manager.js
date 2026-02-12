@@ -6,28 +6,40 @@ const AudioManager = (() => {
     let loopingSounds = [];
     const _cache = {};
     const _k = 'pyrothief-sf-2025';
+    let _dk = null;
 
-    async function _resolve(url) {
-        if (!url || !url.endsWith('.enc')) return url;
-        if (_cache[url]) return _cache[url];
-        const resp = await fetch(url);
-        const buf = await resp.arrayBuffer();
-        const iv = buf.slice(0, 12);
-        const tag = buf.slice(12, 28);
-        const ct = buf.slice(28);
+    async function _getKey() {
+        if (_dk) return _dk;
         const raw = new TextEncoder().encode(_k);
         const km = await crypto.subtle.importKey('raw', raw, 'PBKDF2', false, ['deriveKey']);
-        const dk = await crypto.subtle.deriveKey(
+        _dk = await crypto.subtle.deriveKey(
             { name: 'PBKDF2', salt: new TextEncoder().encode('sceneforge-audio'), iterations: 100000, hash: 'SHA-256' },
             km, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
         );
-        const combined = new Uint8Array(ct.byteLength + tag.byteLength);
-        combined.set(new Uint8Array(ct), 0);
-        combined.set(new Uint8Array(tag), ct.byteLength);
-        const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv), tagLength: 128 }, dk, combined);
-        const blob = new Blob([dec], { type: 'audio/mpeg' });
-        _cache[url] = URL.createObjectURL(blob);
-        return _cache[url];
+        return _dk;
+    }
+
+    async function _resolve(url) {
+        if (!url) return url;
+        if (_cache[url]) return _cache[url];
+        try {
+            const resp = await fetch(url);
+            const buf = await resp.arrayBuffer();
+            if (buf.byteLength < 29) return url;
+            const iv = buf.slice(0, 12);
+            const tag = buf.slice(12, 28);
+            const ct = buf.slice(28);
+            const dk = await _getKey();
+            const combined = new Uint8Array(ct.byteLength + tag.byteLength);
+            combined.set(new Uint8Array(ct), 0);
+            combined.set(new Uint8Array(tag), ct.byteLength);
+            const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv), tagLength: 128 }, dk, combined);
+            const blob = new Blob([dec], { type: 'audio/mpeg' });
+            _cache[url] = URL.createObjectURL(blob);
+            return _cache[url];
+        } catch (e) {
+            return url;
+        }
     }
 
     function unlock() {

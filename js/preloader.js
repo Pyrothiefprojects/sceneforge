@@ -64,17 +64,8 @@ const Preloader = (() => {
     }
 
     function loadAsset(url) {
-        if (/\.enc$/i.test(url)) {
-            return AudioManager._resolve(url).then(() => {}).catch(() => {});
-        }
         if (/\.(mp3|wav|m4a|aac)$/i.test(url)) {
-            return new Promise((resolve) => {
-                const audio = new Audio();
-                audio.preload = 'auto';
-                audio.oncanplaythrough = () => resolve();
-                audio.onerror = () => resolve();
-                audio.src = url;
-            });
+            return AudioManager._resolve(url).then(() => {}).catch(() => {});
         }
         if (/\.(mp4|webm|ogg)$/i.test(url)) {
             return new Promise((resolve) => {
