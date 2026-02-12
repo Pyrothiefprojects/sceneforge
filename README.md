@@ -7,6 +7,7 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 - **Session 1:** 2:00 AM – 5:00 AM, Feb 11 — Core engine (scenes, hotspots, inventory, puzzles, play mode, game state)
 - **Session 2:** 4:00 PM – 10:00 PM, Feb 11 — Puzzle assets, combo lock, asset grouping, puzzle hotspots, action config unification, dialogue fixes, state change toggles, scene image generation (Sora), transition animation planning
 - **Session 3:** 12:00 AM – 6:00 AM, Feb 12 — Transition animations (PNG sequences + video), loop animations with placement/scale/reverse, reverse frames for state transitions, edit scene backgrounds, cleaned up export method and setup website.
+- **Session 4:** Feb 12 — Export system with path-based asset references, asset preloader with progress bar, deployment to GitHub Pages
 - **Total build time:** ~15 hours (so far)
 
 ## How It Works
@@ -22,7 +23,9 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 - Progression system with ordered hint steps tied to those flags
 - **Transition animations** — state changes can play stepped PNG frame sequences or embedded video clips as cinematic transitions
 - **Loop animations** — hotspots can have continuously cycling frame animations overlaid on the scene or puzzle (e.g. flickering lights, flowing water)
-- Projects save/load as self-contained JSON files (all images and videos embedded as data URLs)
+- Projects save/load as self-contained JSON files (images and videos embedded as data URLs)
+- **Export** produces a deployment-ready `project-data.js` with path-based asset references (relative paths to files in `assets/`)
+- **Asset preloader** — on startup, scans all asset URLs from the project data and preloads images/videos in parallel with a progress bar before the game begins
 
 ## Tech Stack
 - **HTML** — single page shell
@@ -30,8 +33,8 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 - **CSS** — dark theme UI (pyrothief.ca aesthetic)
 - **Canvas API** — scene rendering, hotspot polygon drawing and hit-testing
 - **SVG** — puzzle hotspot rendering within puzzle overlays
-- **PNG / WebP / JPEG** — scene backgrounds, puzzle graphics, item icons, animation frames (embedded as data URLs)
-- **MP4 / WebM** — optional video transitions for state changes (embedded as data URLs)
+- **PNG / WebP / JPEG** — scene backgrounds, puzzle graphics, item icons, animation frames
+- **MP4 / WebM** — optional video transitions for state changes
 
 ## Project Structure
 ```
@@ -40,7 +43,7 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 ├── css/
 │   └── editor.css              # All styling (dark theme, panels, overlays, animations)
 ├── js/
-│   ├── app.js                  # Bootstrap and initialization
+│   ├── app.js                  # Bootstrap, preloader, auto-load
 │   ├── canvas.js               # Canvas rendering, fit-to-screen, coordinate transforms
 │   ├── scene-manager.js        # Scene CRUD, states, drag reorder, import/export
 │   ├── hotspot-editor.js       # Polygon drawing, selection, drag handles, popover config
@@ -53,13 +56,16 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 │   ├── loop-animator.js        # Continuous frame loop overlays (scene and puzzle modes)
 │   ├── game-state.js           # Flags, inventory, scene/puzzle state, progression, overview
 │   ├── play-mode.js            # Play mode runtime (actions, cursors, overlays, dialogue)
-│   ├── toolbar.js              # Toolbar sections, panel rendering, mode switching, save/load
+│   ├── preloader.js            # Asset preloader with progress bar
+│   ├── toolbar.js              # Toolbar sections, panel rendering, mode switching, save/load/export
 │   └── assets/
 │       └── combo-lock.js       # Combo lock puzzle asset type
-├── assets/
-│   ├── scenes/                 # Scene background images (user-provided)
-│   └── items/                  # Inventory item icons (user-provided)
-├── data/                       # Project data files
+├── assets/                     # All game assets (images, frames, videos)
+│   ├── scenes/                 # Scene background images
+│   ├── items/                  # Inventory item icons
+│   └── transitions/            # PNG frame sequences and video clips
+├── data/
+│   └── project-data.js         # Exported project data (path-based asset references)
 └── README.md
 ```
 
@@ -190,15 +196,26 @@ No build step, no imports — scripts load in dependency order via `<script>` ta
 
 This workflow ensures that state backgrounds match the transition endpoints exactly, so there's no visual pop when the animation starts or ends.
 
-## Save / Load
-- **Save** — downloads a `sceneforge-project.json` file containing all scenes, items, puzzles, progression steps, images, animation frames, and videos (as embedded data URLs)
+## Save / Load / Export
+- **Save** — downloads a `sceneforge-project.json` file containing all scenes, items, puzzles, progression steps, images, animation frames, and videos (embedded as data URLs for portability)
 - **Load** — upload a project JSON to restore the full editor state
+- **Export** — generates `project-data.js` with path-based asset references instead of data URLs, ready for deployment alongside the asset files in `assets/`
 - Includes backwards-compatible migration for older project formats
 
-## Hosting
-- GitHub Pages (static hosting)
-- Repo: Pyrothiefprojects/sceneforge
-- All client-side, no backend required
+## Deployment
+The exported game is fully static — no server-side code required.
+
+1. **Export** the project from the editor (Export button in toolbar)
+2. Place the exported `project-data.js` in `data/`
+3. Place all asset files in the `assets/` folder structure matching the paths in the export
+4. Host the entire folder on any static host (GitHub Pages, Netlify, etc.)
+
+On load, the preloader scans all asset URLs from `window.SCENEFORGE_PROJECT`, preloads every image and video in parallel with a progress bar, then auto-starts play mode.
+
+### Live
+- **Site:** [pyrothief.ca/sceneforge](https://pyrothief.ca/sceneforge/)
+- **Repo:** [Pyrothiefprojects/sceneforge](https://github.com/Pyrothiefprojects/sceneforge)
+- Hosted via GitHub Pages
 
 ## Development
 - VS Code with Claude Code extension

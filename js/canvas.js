@@ -14,6 +14,13 @@ const Canvas = (() => {
     }
 
     function loadImage(src) {
+        const cached = typeof Preloader !== 'undefined' && Preloader.getImage(src);
+        if (cached) {
+            backgroundImage = cached;
+            calcFit();
+            render();
+            return Promise.resolve(cached);
+        }
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {

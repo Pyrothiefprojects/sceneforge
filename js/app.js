@@ -7,7 +7,9 @@
 
     // Auto-load project data if available (for hosted/deployed games)
     if (window.SCENEFORGE_PROJECT) {
-        SceneManager.importJSON(window.SCENEFORGE_PROJECT);
-        Toolbar.enterPlayMode();
+        Preloader.run(window.SCENEFORGE_PROJECT).then(() => {
+            SceneManager.importJSON(window.SCENEFORGE_PROJECT);
+            Toolbar.enterPlayMode();
+        });
     }
 })();

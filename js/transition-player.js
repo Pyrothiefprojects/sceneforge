@@ -14,11 +14,27 @@ const TransitionPlayer = (() => {
             const anim = { cancelled: false, timer: null };
             currentAnimation = anim;
 
-            // Preload all frame images
+            // Use cached images from Preloader, fallback to loading
             const images = [];
-            let loaded = 0;
+            let pending = 0;
 
-            function onAllLoaded() {
+            for (let j = 0; j < frames.length; j++) {
+                const cached = Preloader.getImage(frames[j]);
+                if (cached) {
+                    images[j] = cached;
+                } else {
+                    pending++;
+                    const img = new Image();
+                    img.onload = img.onerror = () => {
+                        pending--;
+                        if (pending === 0) startPlayback();
+                    };
+                    img.src = frames[j];
+                    images[j] = img;
+                }
+            }
+
+            function startPlayback() {
                 let i = 0;
 
                 function showNext() {
@@ -45,19 +61,8 @@ const TransitionPlayer = (() => {
                 showNext();
             }
 
-            for (let j = 0; j < frames.length; j++) {
-                const img = new Image();
-                img.onload = () => {
-                    loaded++;
-                    if (loaded === frames.length) onAllLoaded();
-                };
-                img.onerror = () => {
-                    loaded++;
-                    if (loaded === frames.length) onAllLoaded();
-                };
-                img.src = frames[j];
-                images[j] = img;
-            }
+            // If all images were cached, start immediately
+            if (pending === 0) startPlayback();
         });
     }
 

@@ -54,22 +54,33 @@ const LoopAnimator = (() => {
         };
         entries.push(entry);
 
-        // Preload all frames, then start cycling
+        // Use cached images from Preloader, fallback to loading
+        let pending = 0;
         for (let i = 0; i < total; i++) {
-            const frame = new Image();
-            frame.onload = frame.onerror = () => {
-                loaded++;
-                if (loaded === total) {
-                    if (loop.reverse) images.reverse();
-                    entry.ready = true;
-                    img.src = images[0] ? images[0].src : loop.frames[0];
-                    reposition(entry);
-                    entry.timer = setInterval(() => tick(entry), duration);
-                }
-            };
-            frame.src = loop.frames[i];
-            images[i] = frame;
+            const cached = Preloader.getImage(loop.frames[i]);
+            if (cached) {
+                images[i] = cached;
+            } else {
+                pending++;
+                const frame = new Image();
+                frame.onload = frame.onerror = () => {
+                    pending--;
+                    if (pending === 0) beginLoop();
+                };
+                frame.src = loop.frames[i];
+                images[i] = frame;
+            }
         }
+
+        function beginLoop() {
+            if (loop.reverse) images.reverse();
+            entry.ready = true;
+            img.src = images[0] ? images[0].src : loop.frames[0];
+            reposition(entry);
+            entry.timer = setInterval(() => tick(entry), duration);
+        }
+
+        if (pending === 0) beginLoop();
     }
 
     function tick(entry) {
