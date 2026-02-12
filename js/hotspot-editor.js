@@ -263,6 +263,7 @@ const HotspotEditor = (() => {
             <div id="pop-auto-flag" class="auto-flag-label"></div>
             ${ActionConfig.renderStateChangeToggle(hotspot, 'pop', sceneStates)}
             ${ActionConfig.renderLoopToggle(hotspot, 'pop')}
+            ${ActionConfig.renderSoundToggle(hotspot, 'pop')}
         `;
 
         document.getElementById('hotspot-overlay').appendChild(popoverEl);
@@ -279,6 +280,7 @@ const HotspotEditor = (() => {
         ActionConfig.bindDropdown(popoverEl, hotspot, 'pop', () => updateAutoFlagLabel(hotspot));
         ActionConfig.bindStateChangeToggle(popoverEl, hotspot, 'pop');
         ActionConfig.bindLoopToggle(popoverEl, hotspot, 'pop');
+        ActionConfig.bindSoundToggle(popoverEl, hotspot, 'pop');
 
         // Loop placement button
         const loopPlaceBtn = popoverEl.querySelector('#pop-loop-place');

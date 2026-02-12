@@ -816,7 +816,8 @@ window.SCENEFORGE_PROJECT = {
           ]
         }
       ],
-      "editingStateIndex": 0
+      "editingStateIndex": 0,
+      "music": "assets/audio/Scene0.enc"
     }
   ],
   "items": [

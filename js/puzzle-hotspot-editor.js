@@ -265,6 +265,8 @@ const PuzzleHotspotEditor = (() => {
             return;
         }
 
+        if (hotspot.sound) AudioManager.playSound(hotspot.sound, hotspot.soundLoop);
+
         const autoFlag = GameState.getAutoFlag(hotspot);
         if (autoFlag) GameState.setFlag(autoFlag);
 
@@ -404,6 +406,7 @@ const PuzzleHotspotEditor = (() => {
             ${ActionConfig.renderDropdown(hotspot, 'puzzle-hs-pop')}
             ${ActionConfig.renderStateChangeToggle(hotspot, 'puzzle-hs-pop', puzzleStates)}
             ${ActionConfig.renderLoopToggle(hotspot, 'puzzle-hs-pop')}
+            ${ActionConfig.renderSoundToggle(hotspot, 'puzzle-hs-pop')}
             <div style="margin-top:8px;">
                 <button class="panel-btn danger" id="puzzle-hs-pop-delete">Delete</button>
             </div>
@@ -431,6 +434,7 @@ const PuzzleHotspotEditor = (() => {
         ActionConfig.bindDropdown(popoverEl, hotspot, 'puzzle-hs-pop', () => updateAutoFlagLabel(hotspot));
         ActionConfig.bindStateChangeToggle(popoverEl, hotspot, 'puzzle-hs-pop');
         ActionConfig.bindLoopToggle(popoverEl, hotspot, 'puzzle-hs-pop');
+        ActionConfig.bindSoundToggle(popoverEl, hotspot, 'puzzle-hs-pop');
 
         // Delete
         popoverEl.querySelector('#puzzle-hs-pop-delete').addEventListener('click', () => {

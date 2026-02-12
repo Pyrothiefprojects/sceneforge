@@ -3,6 +3,8 @@ const PlayMode = (() => {
     let selectedItem = null;
     let dialogueEl = null;
     let dialogueTimer = null;
+    let typewriterInterval = null;
+    let typewriterDone = false;
     let hoveredHotspot = null;
     let itemCursorCache = {};
 
@@ -22,10 +24,17 @@ const PlayMode = (() => {
         GameState.reset();
         HotspotEditor.closePopover();
 
+        // Unlock audio on first click
+        const unlockHandler = () => { AudioManager.unlock(); document.removeEventListener('click', unlockHandler); };
+        document.addEventListener('click', unlockHandler);
+
         // Start at the first scene in the list
         const scenes = SceneManager.getAllScenes();
         if (scenes.length > 0) {
             SceneManager.switchScene(scenes[0].id);
+            // Queue scene music (plays after first click unlocks audio)
+            const scene = SceneManager.getScene(scenes[0].id);
+            if (scene && scene.music) AudioManager.playMusic(scene.music);
         }
 
         createDialogueBox();
@@ -37,6 +46,7 @@ const PlayMode = (() => {
     function exit() {
         active = false;
         selectedItem = null;
+        AudioManager.stop();
         LoopAnimator.stop();
         TransitionPlayer.cancel();
         closeInventoryOverlay();
@@ -534,6 +544,7 @@ const PlayMode = (() => {
     }
 
     function closePuzzleOverlay() {
+        AudioManager.stopSounds();
         LoopAnimator.stopPuzzle();
         TransitionPlayer.cancel();
 
@@ -559,10 +570,17 @@ const PlayMode = (() => {
     function createDialogueBox() {
         if (dialogueEl) dialogueEl.remove();
         dialogueEl = document.createElement('div');
-        dialogueEl.className = 'dialogue-box hidden';
+        dialogueEl.className = 'dialogue-box dialogue-hidden';
         dialogueEl.addEventListener('click', () => {
-            if (dialogueTimer) { clearTimeout(dialogueTimer); dialogueTimer = null; }
-            dialogueEl.classList.add('hidden');
+            if (!typewriterDone) {
+                // First click: skip typewriter, show full text
+                if (typewriterInterval) { clearInterval(typewriterInterval); typewriterInterval = null; }
+                dialogueEl.textContent = dialogueEl.dataset.fullText || '';
+                typewriterDone = true;
+                return;
+            }
+            // Second click: dismiss
+            dismissDialogue();
         });
         document.body.appendChild(dialogueEl);
     }
@@ -570,12 +588,35 @@ const PlayMode = (() => {
     function showDialogue(text) {
         if (!dialogueEl) return;
         if (dialogueTimer) { clearTimeout(dialogueTimer); dialogueTimer = null; }
-        dialogueEl.textContent = text;
-        dialogueEl.classList.remove('hidden');
+        if (typewriterInterval) { clearInterval(typewriterInterval); typewriterInterval = null; }
+
+        dialogueEl.dataset.fullText = text;
+        dialogueEl.textContent = '';
+        typewriterDone = false;
+        dialogueEl.classList.remove('dialogue-hidden');
+
+        let i = 0;
+        typewriterInterval = setInterval(() => {
+            if (i < text.length) {
+                dialogueEl.textContent += text[i];
+                i++;
+            } else {
+                clearInterval(typewriterInterval);
+                typewriterInterval = null;
+                typewriterDone = true;
+            }
+        }, 30);
+
         dialogueTimer = setTimeout(() => {
-            dialogueEl.classList.add('hidden');
-            dialogueTimer = null;
+            dismissDialogue();
         }, 10000);
+    }
+
+    function dismissDialogue() {
+        if (!dialogueEl) return;
+        if (dialogueTimer) { clearTimeout(dialogueTimer); dialogueTimer = null; }
+        if (typewriterInterval) { clearInterval(typewriterInterval); typewriterInterval = null; }
+        dialogueEl.classList.add('dialogue-hidden');
     }
 
     // -- Cursor helpers --
@@ -643,6 +684,9 @@ const PlayMode = (() => {
             return;
         }
 
+        // Play sound effect if set
+        if (hotspot.sound) AudioManager.playSound(hotspot.sound, hotspot.soundLoop);
+
         // Auto-set the flag for this action
         const autoFlag = GameState.getAutoFlag(hotspot);
 
@@ -670,9 +714,12 @@ const PlayMode = (() => {
             case 'navigate':
                 if (action.target) {
                     if (autoFlag) GameState.setFlag(autoFlag);
+                    AudioManager.stopSounds();
                     LoopAnimator.stop();
                     SceneManager.switchScene(action.target);
                     LoopAnimator.startScene(HotspotEditor.getHotspots());
+                    const targetScene = SceneManager.getScene(action.target);
+                    if (targetScene) AudioManager.playMusic(targetScene.music);
                 }
                 break;
 

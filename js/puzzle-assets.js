@@ -371,6 +371,9 @@ const PuzzleAssets = (() => {
                 const autoFlag = getGroupAutoFlag(group);
                 if (autoFlag) GameState.setFlag(autoFlag);
 
+                // Play group sound effect
+                if (group.sound) AudioManager.playSound(group.sound, group.soundLoop);
+
                 // Fire group action
                 dispatchActionObj(group.action);
                 if (group.stateChange && group.stateChange.stateIndex != null) {
@@ -404,6 +407,7 @@ const PuzzleAssets = (() => {
             const autoFlag = getAutoFlag(asset);
             if (autoFlag) GameState.setFlag(autoFlag);
 
+            if (asset.sound) AudioManager.playSound(asset.sound, asset.soundLoop);
             dispatchActionObj(asset.action);
             if (asset.stateChange && asset.stateChange.stateIndex != null) {
                 dispatchActionObj({
@@ -615,6 +619,7 @@ const PuzzleAssets = (() => {
             </div>
             ${ActionConfig.renderDropdown(actionTarget, 'asset-pop')}
             ${ActionConfig.renderStateChangeToggle(actionTarget, 'asset-pop', puzzleStates)}
+            ${ActionConfig.renderSoundToggle(actionTarget, 'asset-pop')}
             <div style="margin-top:8px; display:flex; gap:6px;">
                 <button class="panel-btn danger" id="asset-pop-delete">Delete</button>
                 ${group ? '<button class="panel-btn danger" id="asset-pop-disconnect">Disconnect</button>' : ''}
@@ -659,6 +664,7 @@ const PuzzleAssets = (() => {
 
         ActionConfig.bindDropdown(popoverEl, actionTarget, 'asset-pop');
         ActionConfig.bindStateChangeToggle(popoverEl, actionTarget, 'asset-pop');
+        ActionConfig.bindSoundToggle(popoverEl, actionTarget, 'asset-pop');
         updatePopoverAutoFlag(asset, group);
 
         // Delete asset

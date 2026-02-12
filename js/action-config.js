@@ -396,9 +396,83 @@ const ActionConfig = (() => {
         }
     }
 
+    function renderSoundToggle(target, idPrefix) {
+        const snd = target.sound;
+        const label = snd ? snd.split('/').pop() : 'No sound selected';
+        return `
+            <div class="popover-field state-change-toggle">
+                <label>
+                    <input type="checkbox" id="${idPrefix}-sound-toggle" ${snd ? 'checked' : ''}>
+                    Sound Effect
+                </label>
+            </div>
+            <div class="popover-field state-change-frames ${snd ? '' : 'hidden'}" id="${idPrefix}-sound-section">
+                <div class="state-change-frames-row">
+                    <button class="panel-btn" id="${idPrefix}-sound-load">${snd ? 'Change Sound' : 'Load Sound'}</button>
+                    <input type="file" id="${idPrefix}-sound-input" accept="audio/*,.enc" style="display:none">
+                    ${snd ? `<button class="panel-btn danger" id="${idPrefix}-sound-clear" title="Clear sound">&times;</button>` : ''}
+                </div>
+                <span id="${idPrefix}-sound-label" class="panel-label" style="font-size:10px; color:var(--text-secondary);">${label}</span>
+                <label class="requires-option" style="margin-top:4px;">
+                    <input type="checkbox" id="${idPrefix}-sound-loop" ${target.soundLoop ? 'checked' : ''}>
+                    Loop
+                </label>
+            </div>`;
+    }
+
+    function bindSoundToggle(popoverEl, target, idPrefix) {
+        const cb = popoverEl.querySelector(`#${idPrefix}-sound-toggle`);
+        const section = popoverEl.querySelector(`#${idPrefix}-sound-section`);
+        const loadBtn = popoverEl.querySelector(`#${idPrefix}-sound-load`);
+        const fileInput = popoverEl.querySelector(`#${idPrefix}-sound-input`);
+        const clearBtn = popoverEl.querySelector(`#${idPrefix}-sound-clear`);
+        const label = popoverEl.querySelector(`#${idPrefix}-sound-label`);
+
+        if (!cb) return;
+
+        cb.addEventListener('change', () => {
+            if (cb.checked) {
+                if (section) section.classList.remove('hidden');
+            } else {
+                target.sound = null;
+                if (section) section.classList.add('hidden');
+                if (label) label.textContent = 'No sound selected';
+            }
+        });
+
+        if (loadBtn && fileInput) {
+            loadBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                target.sound = 'assets/audio/' + file.name;
+                if (loadBtn) loadBtn.textContent = 'Change Sound';
+                if (label) label.textContent = file.name;
+                fileInput.value = '';
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                target.sound = null;
+                if (loadBtn) loadBtn.textContent = 'Load Sound';
+                if (label) label.textContent = 'No sound selected';
+                clearBtn.remove();
+            });
+        }
+
+        const loopCb = popoverEl.querySelector(`#${idPrefix}-sound-loop`);
+        if (loopCb) {
+            loopCb.addEventListener('change', () => {
+                target.soundLoop = loopCb.checked;
+            });
+        }
+    }
+
     return {
         renderDropdown, bindDropdown, renderConfig,
         renderStateChangeToggle, bindStateChangeToggle,
-        renderLoopToggle, bindLoopToggle
+        renderLoopToggle, bindLoopToggle,
+        renderSoundToggle, bindSoundToggle
     };
 })();

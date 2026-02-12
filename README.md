@@ -8,7 +8,8 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 - **Session 2:** 4:00 PM – 10:00 PM, Feb 11 — Puzzle assets, combo lock, asset grouping, puzzle hotspots, action config unification, dialogue fixes, state change toggles, scene image generation (Sora), transition animation planning
 - **Session 3:** 12:00 AM – 6:00 AM, Feb 12 — Transition animations (PNG sequences + video), loop animations with placement/scale/reverse, reverse frames for state transitions, edit scene backgrounds, cleaned up export method and setup website.
 - **Session 4:** 6:30 AM - 9:00 AM, Feb 12 — Export system with path-based asset references, asset preloader with progress bar, deployment to GitHub Pages
-- **Total build time:** ~17.5 hours (so far)
+- **Session 5:** 9:00 AM - 12:00 PM, Feb 12 — Audio system (per-scene background music, per-action sound effects, looping sounds), cursor fixes, puzzle ID fix, music save/export fix, play mode toolbar redesign, typewriter dialogue box, console terminal puzzle asset type
+- **Total build time:** ~20.5 hours (so far)
 
 ## How It Works
 - Single HTML page — no frameworks, no bundler, no server required
@@ -23,9 +24,10 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 - Progression system with ordered hint steps tied to those flags
 - **Transition animations** — state changes can play stepped PNG frame sequences or embedded video clips as cinematic transitions
 - **Loop animations** — hotspots can have continuously cycling frame animations overlaid on the scene or puzzle (e.g. flickering lights, flowing water)
+- **Audio** — per-scene background music (looping, crossfades on scene change) and per-action sound effects on hotspots, puzzle assets, and puzzle hotspots
 - Projects save/load as self-contained JSON files (images and videos embedded as data URLs)
 - **Export** produces a deployment-ready `project-data.js` with path-based asset references (relative paths to files in `assets/`)
-- **Asset preloader** — on startup, scans all asset URLs from the project data and preloads images/videos in parallel with a progress bar before the game begins
+- **Asset preloader** — on startup, scans all asset URLs from the project data and preloads images, videos, and audio files in parallel with a progress bar before the game begins
 
 ## Tech Stack
 - **HTML** — single page shell
@@ -35,6 +37,7 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 - **SVG** — puzzle hotspot rendering within puzzle overlays
 - **PNG / WebP / JPEG** — scene backgrounds, puzzle graphics, item icons, animation frames
 - **MP4 / WebM** — optional video transitions for state changes
+- **MP3 / WAV / M4A / AAC** — background music and sound effects (HTML5 Audio)
 
 ## Project Structure
 ```
@@ -51,20 +54,23 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 │   ├── puzzle-editor.js        # Puzzle management, states, rewards config, clue toggle
 │   ├── puzzle-assets.js        # Asset type registry, placement, grouping, solve logic
 │   ├── puzzle-hotspot-editor.js# Polygon hotspots within puzzle overlays (SVG)
-│   ├── action-config.js        # Shared action dropdown, state change, and loop animation UI
+│   ├── action-config.js        # Shared action dropdown, state change, loop animation, and sound UI
 │   ├── transition-player.js    # PNG frame sequence and video playback for state transitions
 │   ├── loop-animator.js        # Continuous frame loop overlays (scene and puzzle modes)
+│   ├── audio-manager.js        # Background music and sound effect playback (HTML5 Audio)
 │   ├── game-state.js           # Flags, inventory, scene/puzzle state, progression, overview
 │   ├── play-mode.js            # Play mode runtime (actions, cursors, overlays, dialogue)
 │   ├── preloader.js            # Asset preloader with progress bar
 │   ├── toolbar.js              # Toolbar sections, panel rendering, mode switching, save/load/export
 │   └── assets/
-│       └── combo-lock.js       # Combo lock puzzle asset type
-├── assets/                     # All game assets (images, frames, videos)
+│       ├── combo-lock.js       # Combo lock puzzle asset type
+│       └── console-terminal.js # Console terminal puzzle asset type
+├── assets/                     # All game assets (images, frames, videos, audio)
 │   ├── scenes/                 # Scene background images
 │   ├── items/                  # Inventory item icons
 │   ├── puzzles/                # Puzzle background images
-│   └── transitions/            # PNG frame sequences and video clips
+│   ├── transitions/            # PNG frame sequences and video clips
+│   └── audio/                  # Background music and sound effect files
 ├── data/
 │   └── project-data.js         # Exported project data (path-based asset references)
 └── README.md
@@ -79,6 +85,7 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 - Multiple **scene states**: add alternate backgrounds with independent hotspots (e.g. a room before and after solving a puzzle)
 - State widget on each scene card to add, navigate, and remove states
 - **Edit background** — replace the background image for any state without losing hotspots
+- **Scene music** — click the music note on a scene card to assign a looping background track (highlights gold when set); music crossfades automatically when navigating between scenes
 
 ### Hotspots
 - Draw polygon hotspots directly on the canvas by clicking to place vertices
@@ -91,6 +98,7 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
   - **Requires** — prerequisite flags that must be set before this hotspot is interactive
   - **State Change** — optionally transition the scene to a different state, with optional PNG frame sequence or video transition, configurable speed, and reversible frame order
   - **Loop Animation** — attach a cycling frame sequence overlay to the hotspot (e.g. flickering light, spinning gear), with configurable speed, scale (5%–200%), reverse playback, and click-to-place positioning on the canvas
+  - **Sound Effect** — attach an audio file that plays when the hotspot is clicked
 
 ### Inventory
 - Define items with a name, icon image, and use count (1, 2, 3, or infinite)
@@ -137,6 +145,7 @@ Each element can also have:
   - **Transition video** — load an MP4/WebM clip to play instead of frames
   - **Reverse frames** — play the frame sequence in reverse order (reuse the same frames for forward/backward transitions)
 - **Loop Animation** — attach a continuously cycling frame overlay to the hotspot, with configurable speed, scale, reverse, and visual placement tool
+- **Sound Effect** — attach an audio file (MP3/WAV/M4A/AAC) that plays as a one-shot when the element is activated
 
 ## Puzzle Asset Types
 
@@ -147,6 +156,15 @@ Assets are interactive elements placed inside puzzle overlays. Each type registe
 - Configurable correct value per lock
 - Green highlight when solved
 - Multiple locks can be grouped — all must show the correct value to solve
+
+### Console Terminal
+- Retro green-on-black terminal screen with blinking cursor
+- Player types commands and presses Enter
+- Configurable correct command (e.g. `UNLOCK`, `OVERRIDE`, `1234`)
+- Wrong commands display configurable error text (default: "ACCESS DENIED")
+- Correct command displays success text and marks the asset as solved
+- Configurable: prompt character, error text, success text
+- Green glow border on solve
 
 ### Adding New Asset Types
 Register a type definition with these methods:
@@ -169,13 +187,15 @@ PuzzleAssets.registerType({
 
 Press the **Play** button to enter play mode. The editor UI hides and the game becomes interactive:
 
-- **Cursor feedback** — cursor changes based on what the player is hovering: magnifying glass for clues/puzzles, arrows for navigation, grab hand for pickups, pointer for item targets
+- **Cursor feedback** — default cursor for non-interactive areas, grab hand for all interactive hotspots
 - **Inventory overlay** — click the bag icon to open; click an item to select it (custom item cursor appears); click a hotspot that accepts that item to use it
 - **Puzzle overlays** — open when a puzzle hotspot is clicked; interact with assets (rotate combo locks, etc.); click Continue to check the solution
-- **Dialogue box** — appears at the bottom of the screen for clue text, pickup confirmations, and puzzle completion; auto-dismisses after 10 seconds or click to dismiss immediately
+- **Dialogue box** — typewriter-animated text with frosted glass backdrop; click once to skip animation, click again to dismiss; auto-dismisses after 10 seconds
 - **Hint system** — click the lightbulb icon to see the next hint from the progression list based on which flags the player has collected
 - **State transitions** — hotspots and assets can trigger state changes with animated PNG frame sequences or embedded video transitions, swapping backgrounds and hotspot layouts
 - **Loop animations** — continuously cycling frame overlays play on scene and puzzle hotspots, correctly scaled and positioned relative to the viewport
+- **Background music** — scene music starts looping on the player's first click (browser autoplay restriction); crossfades smoothly when navigating to a scene with different music; stops when exiting play mode
+- **Sound effects** — one-shot or looping audio plays when clicking hotspots, puzzle assets, or puzzle hotspots that have a sound assigned; looping sounds auto-stop on scene change or puzzle close
 - **ESC** to return to edit mode
 
 ## Architecture
@@ -211,7 +231,7 @@ The exported game is fully static — no server-side code required.
 3. Place all asset files in the `assets/` folder structure matching the paths in the export
 4. Host the entire folder on any static host (GitHub Pages, Netlify, etc.)
 
-On load, the preloader scans all asset URLs from `window.SCENEFORGE_PROJECT`, preloads every image and video in parallel with a progress bar, then auto-starts play mode.
+On load, the preloader scans all asset URLs from `window.SCENEFORGE_PROJECT`, preloads every image, video, and audio file in parallel with a progress bar, then auto-starts play mode.
 
 ### Live
 - **Site:** [pyrothief.ca/sceneforge](https://pyrothief.ca/sceneforge/)
@@ -222,3 +242,10 @@ On load, the preloader scans all asset URLs from `window.SCENEFORGE_PROJECT`, pr
 - VS Code with Claude Code extension
 - GitHub for version control and hosting
 - Local dev via Live Server or `npx serve`
+
+## TODO
+- [ ] Custom mouse cursors — replace default browser cursors with themed artwork (hand, magnifying glass, crosshair, etc.)
+- [ ] Expand puzzle overlay theme — style the puzzle panel and background to match the game's atmosphere (frosted glass, glow effects, themed borders)
+- [ ] Expand dialogue box theme — richer styling, character portraits or speaker names, multiple dialogue styles per context
+- [ ] Sound effects: cryo pod lid opening — attach audio to the cryo pod state change transition
+- [ ] Sound effects: console puzzle — keyboard typing sounds, error beep, success chime for the terminal asset

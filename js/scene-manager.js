@@ -12,7 +12,8 @@ const SceneManager = (() => {
                 backgroundData: backgroundData || null,
                 hotspots: []
             }],
-            editingStateIndex: 0
+            editingStateIndex: 0,
+            music: null
         };
         scenes.push(scene);
         currentSceneId = id;
@@ -165,6 +166,8 @@ const SceneManager = (() => {
                     </div>` : ''}
                 </div>
                 <div class="scene-card-actions">
+                    <button class="scene-card-music ${s.music ? 'has-audio' : ''}" data-id="${s.id}" title="${s.music ? s.music : 'Set music'}">&#9835;</button>
+                    <input type="file" class="scene-music-input" data-id="${s.id}" accept="audio/*,.enc" style="display:none">
                     <button class="scene-card-edit-bg" data-id="${s.id}" title="Change background image">Edit</button>
                     <button class="scene-card-add-state" data-id="${s.id}" title="Add state">+State</button>
                     <button class="scene-card-delete" data-id="${s.id}" title="Remove scene">&times;</button>
@@ -219,6 +222,7 @@ const SceneManager = (() => {
                 if (e.target.closest('.scene-card-delete') ||
                     e.target.closest('.scene-card-add-state') ||
                     e.target.closest('.scene-card-edit-bg') ||
+                    e.target.closest('.scene-card-music') ||
                     e.target.closest('.scene-state-nav') ||
                     e.target.classList.contains('scene-card-name')) return;
                 switchScene(card.dataset.id);
@@ -229,6 +233,26 @@ const SceneManager = (() => {
         container.querySelectorAll('.scene-card-name').forEach(input => {
             input.addEventListener('change', () => {
                 renameScene(input.dataset.id, input.value.trim());
+            });
+        });
+
+        // Set music
+        container.querySelectorAll('.scene-card-music').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fileInput = container.querySelector(`.scene-music-input[data-id="${btn.dataset.id}"]`);
+                if (fileInput) fileInput.click();
+            });
+        });
+        container.querySelectorAll('.scene-music-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const scene = getScene(input.dataset.id);
+                if (scene) {
+                    scene.music = 'assets/audio/' + file.name;
+                    renderSceneList();
+                }
+                input.value = '';
             });
         });
 
@@ -341,7 +365,8 @@ const SceneManager = (() => {
                 id: s.id,
                 name: s.name,
                 states: s.states,
-                editingStateIndex: s.editingStateIndex || 0
+                editingStateIndex: s.editingStateIndex || 0,
+                music: s.music || null
             })),
             items: InventoryEditor.getAllItems(),
             puzzles: PuzzleEditor.getAllPuzzles(),

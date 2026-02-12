@@ -9,14 +9,16 @@ const Preloader = (() => {
         const urls = new Set();
         if (!data) return urls;
 
-        // Scene backgrounds and hotspot frames/videos
+        // Scene backgrounds, hotspot frames/videos, and audio
         if (data.scenes) {
             for (const scene of data.scenes) {
+                if (scene.music) urls.add(scene.music);
                 if (!scene.states) continue;
                 for (const state of scene.states) {
                     if (state.backgroundData) urls.add(state.backgroundData);
                     if (state.hotspots) {
                         for (const h of state.hotspots) {
+                            if (h.sound) urls.add(h.sound);
                             if (h.stateChange) {
                                 if (h.stateChange.frames) h.stateChange.frames.forEach(f => urls.add(f));
                                 if (h.stateChange.video) urls.add(h.stateChange.video);
@@ -37,12 +39,22 @@ const Preloader = (() => {
             }
         }
 
-        // Puzzle backgrounds
+        // Puzzle backgrounds, asset/hotspot sounds
         if (data.puzzles) {
             for (const puzzle of data.puzzles) {
                 if (puzzle.states) {
                     for (const state of puzzle.states) {
                         if (state.backgroundImage) urls.add(state.backgroundImage);
+                        if (state.assets) {
+                            for (const a of state.assets) {
+                                if (a.sound) urls.add(a.sound);
+                            }
+                        }
+                        if (state.hotspots) {
+                            for (const h of state.hotspots) {
+                                if (h.sound) urls.add(h.sound);
+                            }
+                        }
                     }
                 }
             }
@@ -52,6 +64,18 @@ const Preloader = (() => {
     }
 
     function loadAsset(url) {
+        if (/\.enc$/i.test(url)) {
+            return AudioManager._resolve(url).then(() => {}).catch(() => {});
+        }
+        if (/\.(mp3|wav|m4a|aac)$/i.test(url)) {
+            return new Promise((resolve) => {
+                const audio = new Audio();
+                audio.preload = 'auto';
+                audio.oncanplaythrough = () => resolve();
+                audio.onerror = () => resolve();
+                audio.src = url;
+            });
+        }
         if (/\.(mp4|webm|ogg)$/i.test(url)) {
             return new Promise((resolve) => {
                 const video = document.createElement('video');

@@ -212,7 +212,8 @@ const Toolbar = (() => {
                     id: s.id,
                     name: s.name,
                     states: s.states,
-                    editingStateIndex: s.editingStateIndex || 0
+                    editingStateIndex: s.editingStateIndex || 0,
+                    music: s.music || null
                 })),
                 items: InventoryEditor.getAllItems(),
                 puzzles: PuzzleEditor.getAllPuzzles(),
