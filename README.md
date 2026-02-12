@@ -63,6 +63,7 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 ├── assets/                     # All game assets (images, frames, videos)
 │   ├── scenes/                 # Scene background images
 │   ├── items/                  # Inventory item icons
+│   ├── puzzles/                # Puzzle background images
 │   └── transitions/            # PNG frame sequences and video clips
 ├── data/
 │   └── project-data.js         # Exported project data (path-based asset references)

@@ -525,12 +525,8 @@ const PlayMode = (() => {
         stateFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                PuzzleEditor.addState(puzzle.id, evt.target.result);
-                switchPuzzleEditState(puzzle.editingStateIndex);
-            };
-            reader.readAsDataURL(file);
+            PuzzleEditor.addState(puzzle.id, 'assets/puzzles/' + file.name);
+            switchPuzzleEditState(puzzle.editingStateIndex);
             stateFileInput.value = '';
         });
 
@@ -606,19 +602,7 @@ const PlayMode = (() => {
     function getActionCursor(hotspot) {
         if (selectedItem) return getItemCursor(selectedItem);
         if (!hotspot) return 'default';
-        switch (hotspot.action.type) {
-            case 'clue':
-            case 'puzzle':
-                return 'zoom-in';
-            case 'navigate':
-                return 'n-resize';
-            case 'pickup':
-                return 'grab';
-            case 'accepts_item':
-                return 'pointer';
-            default:
-                return 'pointer';
-        }
+        return 'grab';
     }
 
     // -- Hover handling --
@@ -675,10 +659,10 @@ const PlayMode = (() => {
                     if (clue) {
                         openPuzzleOverlay(clue, hotspot, action.text || clue.completionText);
                     } else {
-                        showDialogue(action.text || 'Nothing interesting.');
+                        if (action.text) showDialogue(action.text);
                     }
                 } else {
-                    showDialogue(action.text || 'Nothing interesting.');
+                    if (action.text) showDialogue(action.text);
                 }
                 if (autoFlag) GameState.setFlag(autoFlag);
                 break;

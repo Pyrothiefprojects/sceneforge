@@ -440,10 +440,10 @@ const PuzzleAssets = (() => {
                     if (clue) {
                         PlayMode.showDialogue(action.text || clue.completionText || 'Found a clue.');
                     } else {
-                        PlayMode.showDialogue(action.text || 'Nothing interesting.');
+                        if (action.text) PlayMode.showDialogue(action.text);
                     }
                 } else {
-                    PlayMode.showDialogue(action.text || 'Nothing interesting.');
+                    if (action.text) PlayMode.showDialogue(action.text);
                 }
                 break;
 

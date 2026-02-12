@@ -145,7 +145,7 @@ window.SCENEFORGE_PROJECT = {
               ],
               "action": {
                 "type": "clue",
-                "text": ""
+                "text": "The Console emits an uncanny light, the Monitor is made of what can only be described as a living linen - Alien ruins boil within the screens material."
               },
               "requires": [],
               "loop": null,
@@ -223,7 +223,7 @@ window.SCENEFORGE_PROJECT = {
           "hotspots": [
             {
               "id": "hotspot_1770888600036",
-              "name": "",
+              "name": "trigger_puzzle",
               "points": [
                 [
                   639,
@@ -243,8 +243,8 @@ window.SCENEFORGE_PROJECT = {
                 ]
               ],
               "action": {
-                "type": "clue",
-                "text": ""
+                "type": "puzzle",
+                "puzzleId": "puzzle_1770911777010"
               },
               "requires": [],
               "loop": {
@@ -342,20 +342,20 @@ window.SCENEFORGE_PROJECT = {
               "name": "",
               "points": [
                 [
-                  1267,
-                  797
+                  1287,
+                  762
                 ],
                 [
                   1288,
                   969
                 ],
                 [
-                  1599,
-                  945
+                  1616,
+                  971
                 ],
                 [
-                  1598,
-                  770
+                  1615,
+                  762
                 ]
               ],
               "action": {
@@ -770,6 +770,39 @@ window.SCENEFORGE_PROJECT = {
                 ]
               ],
               "action": {
+                "type": "puzzle",
+                "puzzleId": "puzzle_1770910998057"
+              },
+              "requires": [],
+              "stateChange": {
+                "stateIndex": 2,
+                "frames": [],
+                "frameDuration": 100,
+                "video": null
+              }
+            },
+            {
+              "id": "hotspot_1770911947607",
+              "name": "",
+              "points": [
+                [
+                  1281,
+                  744
+                ],
+                [
+                  1280,
+                  944
+                ],
+                [
+                  1578,
+                  945
+                ],
+                [
+                  1577,
+                  746
+                ]
+              ],
+              "action": {
                 "type": "none"
               },
               "requires": [],
@@ -795,10 +828,29 @@ window.SCENEFORGE_PROJECT = {
       "consumable": true
     }
   ],
-  "puzzles": [],
+  "puzzles": [
+    {
+      "id": "puzzle_1770911777010",
+      "name": "MonitorPuzzle",
+      "states": [
+        {
+          "backgroundImage": "assets/puzzles/monitorpuzzle.png",
+          "assets": [],
+          "assetGroups": [],
+          "hotspots": []
+        }
+      ],
+      "editingStateIndex": 0,
+      "rewardItemId": "",
+      "rewardSceneState": null,
+      "isClue": false,
+      "completionText": ""
+    }
+  ],
   "gameState": [
     "examined_transition",
-    "examined_monitor"
+    "examined_monitor",
+    "solved_trigger_puzzle"
   ],
   "progressionSteps": []
 };

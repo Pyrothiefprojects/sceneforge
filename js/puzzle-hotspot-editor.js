@@ -227,7 +227,7 @@ const PuzzleHotspotEditor = (() => {
                 polygon.setAttribute('stroke', 'none');
                 polygon.classList.add('play');
                 polygon.style.pointerEvents = 'all';
-                polygon.style.cursor = 'pointer';
+                polygon.style.cursor = 'grab';
 
                 // Play mode click handler
                 polygon.addEventListener('click', (e) => {
