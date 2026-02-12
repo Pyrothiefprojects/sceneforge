@@ -1,0 +1,1720 @@
+/* =========================================
+   SceneForge — Editor Theme
+   Dark + Fire/Amber (pyrothief.ca palette)
+   ========================================= */
+
+:root {
+    --bg-deep: #0a0a0a;
+    --bg-warm: #1a1210;
+    --bg-panel: #1e1612;
+    --bg-input: #141010;
+    --border-fire: #cc4400;
+    --accent-gold: #ffa500;
+    --accent-orange: #ff6b35;
+    --accent-rust: #cc4400;
+    --text-primary: #f5f5f5;
+    --text-secondary: #a89080;
+    --glow-orange: rgba(255, 107, 53, 0.3);
+    --glow-orange-strong: rgba(255, 107, 53, 0.6);
+    --hotspot-fill: rgba(255, 107, 53, 0.15);
+    --hotspot-stroke: #ff6b35;
+    --toolbar-height: 48px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* ---- Toolbar ---- */
+
+.toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--toolbar-height);
+    background: var(--bg-warm);
+    border-bottom: 2px solid var(--border-fire);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    z-index: 100;
+    transition: transform 0.3s ease;
+}
+
+.toolbar.collapsed {
+    transform: translateY(-100%);
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.toolbar-brand {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, var(--accent-gold), var(--accent-orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.toolbar-sections {
+    display: flex;
+    gap: 4px;
+}
+
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ---- Toolbar Buttons ---- */
+
+.toolbar-btn {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.5px;
+}
+
+.toolbar-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 8px var(--glow-orange);
+}
+
+.toolbar-btn.active {
+    color: var(--text-primary);
+    border-color: var(--accent-orange);
+    background: rgba(255, 107, 53, 0.1);
+}
+
+.mode-btn {
+    background: linear-gradient(135deg, var(--accent-rust), var(--accent-orange));
+    color: var(--text-primary);
+    border: none;
+    font-weight: 600;
+    padding: 6px 20px;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+
+.mode-btn:hover {
+    box-shadow: 0 0 16px var(--glow-orange-strong);
+    transform: translateY(-1px);
+}
+
+/* ---- Toolbar Panel (dropdown area) ---- */
+
+.toolbar-panel {
+    position: absolute;
+    top: var(--toolbar-height);
+    left: 0;
+    right: 0;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-fire);
+    padding: 12px 16px;
+    z-index: 99;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.toolbar-panel.hidden {
+    display: none;
+}
+
+/* ---- Panel Section Content ---- */
+
+.panel-section {
+    display: none;
+}
+
+.panel-section.visible {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.panel-section.visible[data-panel="scene"],
+.panel-section.visible[data-panel="gamestate"] {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.scene-panel-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* ---- Scene List ---- */
+
+.scene-list {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 4px 0;
+}
+
+.scene-card {
+    flex: 0 0 auto;
+    width: 160px;
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.scene-card:hover {
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 8px var(--glow-orange);
+}
+
+.scene-card.active {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 12px var(--glow-orange-strong);
+}
+
+.scene-thumb {
+    width: 100%;
+    height: 90px;
+    overflow: hidden;
+    background: #0d0908;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scene-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.scene-thumb-empty {
+    font-size: 11px;
+    color: #665040;
+}
+
+.scene-card-info {
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.scene-card-name {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 600;
+    outline: none;
+    padding: 0;
+    width: 100%;
+}
+
+.scene-card-name:focus {
+    border-bottom: 1px solid var(--accent-orange);
+}
+
+.scene-card-meta {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.scene-card-delete {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    background: rgba(10, 10, 10, 0.7);
+    border: none;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.scene-card:hover .scene-card-delete {
+    opacity: 1;
+}
+
+.scene-card-delete:hover {
+    color: #ff4444;
+    background: rgba(10, 10, 10, 0.9);
+}
+
+.scene-card.dragging {
+    opacity: 0.4;
+}
+
+.scene-card.drag-over {
+    border-color: var(--accent-gold);
+    border-style: dashed;
+}
+
+.panel-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.panel-input {
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 4px;
+    color: var(--text-primary);
+    padding: 5px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.panel-input:focus {
+    border-color: var(--accent-orange);
+}
+
+.panel-input::placeholder {
+    color: #665040;
+}
+
+.panel-select {
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 4px;
+    color: var(--text-primary);
+    padding: 5px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+}
+
+.panel-select:focus {
+    border-color: var(--accent-orange);
+}
+
+.panel-btn {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid #332820;
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.panel-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 6px var(--glow-orange);
+}
+
+.panel-btn.primary {
+    border-color: var(--accent-rust);
+    color: var(--accent-gold);
+}
+
+.panel-btn.primary:hover {
+    background: rgba(255, 107, 53, 0.15);
+}
+
+.panel-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+}
+
+.panel-btn.danger {
+    border-color: #661111;
+    color: #ff4444;
+}
+
+.panel-btn.danger:hover {
+    background: rgba(255, 68, 68, 0.1);
+    box-shadow: 0 0 6px rgba(255, 68, 68, 0.3);
+}
+
+.panel-divider {
+    width: 1px;
+    height: 24px;
+    background: #332820;
+}
+
+/* ---- Viewport & Canvas ---- */
+
+.viewport {
+    position: fixed;
+    top: var(--toolbar-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-deep);
+    transition: top 0.3s ease;
+}
+
+#game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.hotspot-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+/* ---- Hotspot Popover ---- */
+
+.hotspot-popover {
+    position: absolute;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-rust);
+    border-radius: 6px;
+    padding: 12px;
+    min-width: 260px;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    z-index: 200;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px var(--glow-orange);
+    pointer-events: auto;
+}
+
+.hotspot-popover .popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #332820;
+}
+
+.hotspot-popover .popover-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-gold);
+}
+
+.hotspot-popover .popover-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.hotspot-popover .popover-close:hover {
+    color: var(--text-primary);
+}
+
+.popover-field {
+    margin-bottom: 8px;
+}
+
+.popover-field label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+}
+
+.popover-field .panel-input,
+.popover-field .panel-select {
+    width: 100%;
+}
+
+.flag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.flag-tag {
+    background: rgba(255, 107, 53, 0.1);
+    border: 1px solid #332820;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--accent-gold);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.flag-tag .remove-flag {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+}
+
+.flag-tag .remove-flag:hover {
+    color: #ff4444;
+}
+
+/* ---- Auto Flag Label ---- */
+
+.auto-flag-label {
+    background: rgba(255, 165, 0, 0.08);
+    border: 1px solid #332820;
+    border-radius: 4px;
+    padding: 5px 8px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.auto-flag-arrow {
+    color: var(--accent-orange);
+    margin-right: 2px;
+}
+
+.auto-flag-name {
+    color: var(--accent-gold);
+    font-weight: 600;
+}
+
+/* ---- Requires Dropdown ---- */
+
+.requires-dropdown {
+    max-height: 120px;
+    overflow-y: auto;
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.requires-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--accent-gold);
+}
+
+.requires-option:hover {
+    background: rgba(255, 107, 53, 0.1);
+}
+
+.requires-option input[type="checkbox"] {
+    accent-color: var(--accent-orange);
+}
+
+/* ---- Item Uses Select ---- */
+
+.item-uses-select {
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 3px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-family: inherit;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+    margin-top: 2px;
+}
+
+.item-uses-select:focus {
+    border-color: var(--accent-orange);
+}
+
+/* ---- Toolbar Divider ---- */
+
+.toolbar-divider {
+    width: 1px;
+    height: 24px;
+    background: #332820;
+    margin: 0 4px;
+}
+
+/* ---- Play Mode Toolbar ---- */
+
+.toolbar.play-mode {
+    background: rgba(26, 18, 16, 0.8);
+    backdrop-filter: blur(8px);
+}
+
+.viewport.fullscreen {
+    top: var(--toolbar-height) !important;
+}
+
+/* ---- Inventory Overlay (play mode) ---- */
+
+.inventory-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.inventory-overlay.hidden {
+    display: none;
+}
+
+.inventory-overlay-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.inventory-overlay-panel {
+    position: relative;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-rust);
+    border-radius: 10px;
+    padding: 20px;
+    min-width: 360px;
+    max-width: 600px;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8), 0 0 20px var(--glow-orange);
+}
+
+.inventory-overlay-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #332820;
+}
+
+.inventory-overlay-title {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+
+.inventory-overlay-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+}
+
+.inventory-overlay-item {
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.inventory-overlay-item:hover {
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 8px var(--glow-orange);
+}
+
+.inventory-overlay-item.selected {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 12px var(--glow-orange-strong);
+    background: rgba(255, 107, 53, 0.1);
+}
+
+.inventory-overlay-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.inventory-overlay-icon img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.inventory-overlay-name {
+    font-size: 11px;
+    color: var(--text-primary);
+    text-align: center;
+    word-break: break-word;
+}
+
+/* ---- Item Cards (editor) ---- */
+
+.item-card .item-thumb {
+    height: 80px;
+    background: #0d0908;
+}
+
+.item-card .item-thumb img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+}
+
+/* ---- Dialogue Box ---- */
+
+.dialogue-box {
+    position: fixed;
+    bottom: 88px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-panel);
+    border: 1px solid #332820;
+    border-radius: 8px;
+    padding: 16px 24px;
+    max-width: 500px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    z-index: 500;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    cursor: pointer;
+}
+
+.dialogue-box.hidden {
+    display: none;
+}
+
+/* ---- Game State Panel ---- */
+
+.gamestate-columns {
+    display: flex;
+    gap: 16px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.gamestate-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 160px;
+    border-right: 1px solid #332820;
+    padding-right: 16px;
+}
+
+.gamestate-col:last-child {
+    border-right: none;
+    padding-right: 0;
+}
+
+.gamestate-col-wide {
+    flex: 1;
+}
+
+.gamestate-col-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.flags-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.panel-divider-h {
+    height: 1px;
+    background: #332820;
+    margin: 8px 0;
+}
+
+/* ---- Progression Steps ---- */
+
+.progression-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.progression-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.progression-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 4px;
+    cursor: grab;
+}
+
+.progression-step.dragging {
+    opacity: 0.4;
+}
+
+.progression-step.drag-over {
+    border-color: var(--accent-gold);
+    border-style: dashed;
+}
+
+.progression-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    min-width: 18px;
+    text-align: center;
+}
+
+.progression-flag {
+    min-width: 100px;
+    font-size: 11px;
+}
+
+.progression-hint {
+    flex: 1;
+    min-width: 100px;
+    font-size: 11px;
+}
+
+.progression-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.progression-actions button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.progression-actions button:hover {
+    color: var(--text-primary);
+    background: rgba(255, 107, 53, 0.1);
+}
+
+.progression-actions .progression-remove:hover {
+    color: #ff4444;
+}
+
+/* ---- Level Overview ---- */
+
+.overview-empty {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 4px 0;
+}
+
+.overview-scenes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.overview-scene {
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 4px;
+    padding: 5px 8px;
+}
+
+.overview-scene-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-gold);
+    margin-bottom: 4px;
+}
+
+.overview-hotspots {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.overview-hotspot {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    font-size: 11px;
+    padding: 2px 0;
+}
+
+.overview-hotspot-name {
+    color: var(--text-primary);
+    font-weight: 500;
+    min-width: 80px;
+}
+
+.overview-hotspot-action {
+    color: var(--text-secondary);
+}
+
+.overview-hotspot-flags {
+    color: var(--accent-orange);
+    font-size: 10px;
+    margin-left: auto;
+}
+
+.overview-detail {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.overview-divider {
+    height: 1px;
+    background: #332820;
+    margin: 8px 0;
+}
+
+.overview-items {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.overview-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--text-primary);
+}
+
+.overview-item-icon {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+}
+
+/* ---- Puzzle Overlay (play mode) ---- */
+
+.puzzle-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.puzzle-overlay.hidden {
+    display: none;
+}
+
+.puzzle-overlay-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    animation: puzzleFadeIn 0.3s ease-out;
+}
+
+.puzzle-overlay-panel {
+    position: relative;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-rust);
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 80vw;
+    max-height: 80vh;
+    overflow: auto;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8), 0 0 30px var(--glow-orange);
+    animation: puzzleExpand 0.35s ease-out;
+}
+
+.puzzle-overlay-panel .popover-close {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    z-index: 10;
+    background: rgba(10, 10, 10, 0.6);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.puzzle-overlay-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 300px;
+    min-height: 200px;
+}
+
+.puzzle-overlay-content img {
+    max-width: 100%;
+    max-height: calc(80vh - 140px);
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.puzzle-overlay-caption {
+    text-align: center;
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 12px 8px 0;
+    margin: 0;
+}
+
+@keyframes puzzleFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes puzzleExpand {
+    from {
+        transform: scale(0.4);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ---- Puzzle Cards (editor) ---- */
+
+.puzzle-card .puzzle-thumb {
+    height: 80px;
+    background: #0d0908;
+}
+
+.puzzle-card .puzzle-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.puzzle-rewards {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.puzzle-reward-check {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.puzzle-reward-check input[type="checkbox"] {
+    accent-color: var(--accent-orange);
+}
+
+.puzzle-reward-check span {
+    white-space: nowrap;
+}
+
+/* ---- Puzzle Card Preview (eye) Button ---- */
+
+.puzzle-card-preview {
+    position: absolute;
+    top: 4px;
+    right: 28px;
+    width: 20px;
+    height: 20px;
+    background: rgba(10, 10, 10, 0.7);
+    border: none;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.scene-card:hover .puzzle-card-preview {
+    opacity: 1;
+}
+
+.puzzle-card-preview:hover {
+    color: var(--accent-gold);
+    background: rgba(10, 10, 10, 0.9);
+}
+
+/* ---- Puzzle Edit Toolbar ---- */
+
+/* ---- Puzzle Edit Layout (side tools panel) ---- */
+
+.puzzle-edit-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+}
+
+.puzzle-tools-panel {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    margin-left: 12px;
+    width: 160px;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-rust);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8), 0 0 30px var(--glow-orange);
+    cursor: auto;
+}
+
+.puzzle-tools-panel.left {
+    left: auto;
+    right: 100%;
+    margin-left: 0;
+    margin-right: 12px;
+}
+
+.puzzle-tools-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.puzzle-tools-toggle {
+    background: none;
+    border: 1px solid #332820;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 1px 5px;
+    line-height: 1;
+}
+
+.puzzle-tools-toggle:hover {
+    color: var(--accent-gold);
+    border-color: var(--accent-rust);
+}
+
+.puzzle-tools-divider {
+    height: 1px;
+    background: #332820;
+    margin: 2px 0;
+}
+
+/* ---- Puzzle Asset Layer ---- */
+
+.puzzle-asset-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.puzzle-asset-layer > * {
+    pointer-events: auto;
+}
+
+/* ---- Puzzle Asset ---- */
+
+.puzzle-asset {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+}
+
+.puzzle-asset.edit-mode {
+    border: 1px dashed var(--accent-orange);
+    border-radius: 4px;
+    cursor: grab;
+    padding: 2px;
+}
+
+.puzzle-asset.edit-mode:hover {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 8px var(--glow-orange);
+}
+
+.puzzle-asset.puzzle-ghost {
+    pointer-events: none;
+    opacity: 0.5;
+    border-style: none;
+    z-index: 10;
+    display: none;
+}
+
+.puzzle-asset.connecting {
+    border: 2px solid #4fc3f7;
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+    padding: 2px;
+}
+
+/* ---- Connect Toolbar ---- */
+
+.puzzle-connect-toolbar {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #332820;
+}
+
+.puzzle-connect-toolbar.active {
+    display: flex;
+}
+
+/* ---- Puzzle Hotspot SVG Layer ---- */
+
+.puzzle-hotspot-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.puzzle-hotspot-svg polygon.edit {
+    pointer-events: all;
+    cursor: pointer;
+}
+
+.puzzle-hotspot-svg polygon.play {
+    pointer-events: all;
+    cursor: pointer;
+    fill: transparent;
+    stroke: none;
+}
+
+.puzzle-hotspot-svg polygon.play:hover {
+    fill: rgba(255, 165, 0, 0.12);
+}
+
+.puzzle-hotspot-svg circle.hotspot-handle {
+    pointer-events: all;
+    cursor: grab;
+}
+
+.puzzle-hotspot-toolbar {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+}
+
+.puzzle-hotspot-toolbar.active {
+    display: flex;
+}
+
+.puzzle-hotspot-popover {
+    z-index: 400;
+}
+
+.state-change-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 6px;
+    border-top: 1px solid #332820;
+    margin-top: 6px;
+}
+
+.state-change-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--accent-gold);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.state-change-toggle input[type="checkbox"] {
+    accent-color: var(--accent-orange);
+}
+
+.state-change-toggle .panel-select {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ---- Combo Lock Widget ---- */
+
+.combo-lock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    user-select: none;
+}
+
+.combo-lock.edit-mode {
+    min-width: 60px;
+}
+
+.combo-lock-dial {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: #1a1210;
+    border: 1px solid #332820;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.combo-lock-arrow {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 18px;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+}
+
+.combo-lock-arrow:hover {
+    color: var(--accent-gold);
+    background: rgba(255, 107, 53, 0.15);
+}
+
+.combo-lock-arrow:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.combo-lock-number {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    min-width: 28px;
+    text-align: center;
+    padding: 4px 2px;
+    font-family: 'Courier New', monospace;
+}
+
+.combo-lock-label {
+    font-size: 9px;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+.combo-lock.solved .combo-lock-dial {
+    border-color: #44aa44;
+    box-shadow: 0 0 8px rgba(68, 170, 68, 0.4);
+}
+
+.combo-lock.solved .combo-lock-number {
+    color: #44aa44;
+}
+
+/* ---- Puzzle Asset Popover ---- */
+
+.puzzle-asset-popover {
+    position: absolute;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-rust);
+    border-radius: 6px;
+    padding: 12px;
+    min-width: 260px;
+    max-height: 70vh;
+    overflow-y: auto;
+    z-index: 200;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px var(--glow-orange);
+}
+
+.puzzle-asset-popover .popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #332820;
+}
+
+.puzzle-asset-popover .popover-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-gold);
+}
+
+.puzzle-asset-popover .popover-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.puzzle-asset-popover .popover-close:hover {
+    color: var(--text-primary);
+}
+
+.puzzle-overlay-bg-wrap {
+    overflow: hidden;
+}
+
+/* ---- Puzzle State Widget (scene-card style in tools panel) ---- */
+
+.puzzle-state-card-widget {
+    width: 100%;
+    margin: 0;
+    padding: 6px;
+    gap: 6px;
+}
+
+.puzzle-state-card-widget .scene-thumb {
+    width: 48px;
+    height: 34px;
+    min-width: 48px;
+}
+
+.puzzle-state-card-widget .scene-card-info {
+    min-width: 0;
+}
+
+.puzzle-state-card-widget .scene-card-meta {
+    font-size: 10px;
+}
+
+.puzzle-state-card-widget .scene-card-actions {
+    gap: 2px;
+}
+
+/* ---- Puzzle Background Transition ---- */
+
+.puzzle-overlay-bg-img.fading-out {
+    transition: opacity 0.6s ease;
+    opacity: 0;
+}
+
+.puzzle-overlay-bg-img.fading-in {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transition: opacity 0.6s ease;
+    opacity: 0;
+}
+
+.puzzle-overlay-bg-img.fading-in.visible {
+    opacity: 1;
+}
+
+.puzzle-overlay-bg-img {
+    max-width: 100%;
+    max-height: calc(80vh - 140px);
+    object-fit: contain;
+    border-radius: 4px;
+    display: block;
+}
+
+/* ---- Puzzle Continue Button ---- */
+
+.puzzle-continue-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 14px 0 4px;
+}
+
+.puzzle-continue-btn {
+    padding: 8px 32px;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-color: var(--accent-rust);
+    color: var(--accent-gold);
+    transition: all 0.2s ease;
+}
+
+.puzzle-continue-btn:hover {
+    background: rgba(255, 107, 53, 0.2);
+    box-shadow: 0 0 12px var(--glow-orange);
+    transform: translateY(-1px);
+}
+
+.puzzle-continue-btn.solved {
+    border-color: #44aa44;
+    color: #44aa44;
+    background: rgba(68, 170, 68, 0.1);
+    box-shadow: 0 0 12px rgba(68, 170, 68, 0.3);
+    cursor: default;
+}
+
+.puzzle-continue-btn:disabled {
+    opacity: 0.8;
+}
+
+/* ---- Scene State Navigation ---- */
+
+.scene-card-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+}
+
+.scene-card-add-state {
+    background: none;
+    border: 1px solid var(--border-fire);
+    color: var(--accent-gold);
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.scene-card-add-state:hover {
+    background: var(--glow-orange);
+}
+
+.scene-state-nav {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 2px;
+}
+
+.scene-state-btn {
+    background: none;
+    border: 1px solid var(--border-fire);
+    color: var(--text-secondary);
+    font-size: 10px;
+    width: 20px;
+    height: 18px;
+    padding: 0;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scene-state-btn:hover {
+    color: var(--accent-gold);
+    border-color: var(--accent-gold);
+}
+
+.scene-state-remove {
+    color: var(--accent-rust);
+}
+
+.scene-state-remove:hover {
+    color: #ff4444;
+    border-color: #ff4444;
+}
+
+.overview-state-count {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.overview-puzzle-tags {
+    font-size: 10px;
+    color: var(--accent-gold);
+}
+
+/* ---- State Change Transition Frames UI ---- */
+
+.state-change-frames {
+    margin-top: 4px;
+}
+
+.state-change-frames-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.state-change-frames-row .panel-btn {
+    font-size: 11px;
+    flex: 1;
+}
+
+.state-change-frames-row .panel-btn.danger {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+}
+
+.state-change-speed-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.state-change-speed-row label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.frame-duration-slider {
+    flex: 1;
+    accent-color: var(--accent-orange);
+    height: 4px;
+}
+
+.state-change-speed-row span {
+    font-size: 10px;
+    color: var(--accent-gold);
+    min-width: 36px;
+    text-align: right;
+}
+
+/* ---- Transition Video Overlay ---- */
+
+.transition-video-overlay {
+    pointer-events: none;
+}
+
+.loop-overlay {
+    position: absolute;
+    pointer-events: none;
+    z-index: 5;
+    overflow: hidden;
+    transform: translate(-50%, -50%);
+}
+
+.loop-overlay img {
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    display: block;
+}
+
+.loop-ghost {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.5;
+    z-index: 20;
+    transform: translate(-50%, -50%);
+    display: none;
+}
+
+.loop-ghost img {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* ---- Utility ---- */
+
+.hidden {
+    display: none !important;
+}
+
+/* ---- Scrollbar Styling ---- */
+
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-deep);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #332820;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-rust);
+}

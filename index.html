@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SceneForge</title>
+    <link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+    <div id="toolbar" class="toolbar">
+        <div class="toolbar-left">
+            <span class="toolbar-brand">SceneForge</span>
+            <div class="toolbar-sections" id="editor-sections">
+                <button class="toolbar-btn" data-section="scene">Scene</button>
+                <button class="toolbar-btn" data-section="hotspots">Hotspots</button>
+                <button class="toolbar-btn" data-section="inventory">Inventory</button>
+                <button class="toolbar-btn" data-section="puzzle">Puzzle</button>
+                <button class="toolbar-btn" data-section="gamestate">Game State</button>
+            </div>
+        </div>
+        <div class="toolbar-right">
+            <button id="save-btn" class="toolbar-btn">Save</button>
+            <button id="load-btn" class="toolbar-btn">Load</button>
+            <button id="export-btn" class="toolbar-btn">Export</button>
+            <input id="json-file-input" type="file" accept=".json" style="display:none">
+            <div class="toolbar-divider"></div>
+            <button id="play-inventory-btn" class="toolbar-btn hidden" title="Inventory">&#9776;</button>
+            <button id="play-hint-btn" class="toolbar-btn hidden" title="Hint">&#63;</button>
+            <button id="mode-toggle" class="toolbar-btn mode-btn">Play</button>
+        </div>
+        <div id="toolbar-panel" class="toolbar-panel hidden">
+            <!-- Section panels injected here by JS -->
+        </div>
+    </div>
+
+    <div id="viewport" class="viewport">
+        <canvas id="game-canvas"></canvas>
+        <div id="hotspot-overlay" class="hotspot-overlay"></div>
+    </div>
+
+    <!-- Inventory overlay (play mode) -->
+    <div id="inventory-overlay" class="inventory-overlay hidden">
+        <div class="inventory-overlay-backdrop"></div>
+        <div class="inventory-overlay-panel">
+            <div class="inventory-overlay-header">
+                <span class="inventory-overlay-title">Inventory</span>
+                <button id="inventory-overlay-close" class="popover-close">&times;</button>
+            </div>
+            <div id="inventory-overlay-grid" class="inventory-overlay-grid"></div>
+        </div>
+    </div>
+
+    <!-- Puzzle overlay (play mode) -->
+    <div id="puzzle-overlay" class="puzzle-overlay hidden">
+        <div class="puzzle-overlay-backdrop"></div>
+        <div class="puzzle-overlay-panel">
+            <button id="puzzle-overlay-close" class="popover-close">&times;</button>
+            <div id="puzzle-overlay-content" class="puzzle-overlay-content"></div>
+        </div>
+    </div>
+
+    <script src="js/game-state.js"></script>
+    <script src="js/scene-manager.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/action-config.js"></script>
+    <script src="js/hotspot-editor.js"></script>
+    <script src="js/inventory-editor.js"></script>
+    <script src="js/puzzle-editor.js"></script>
+    <script src="js/puzzle-assets.js"></script>
+    <script src="js/transition-player.js"></script>
+    <script src="js/loop-animator.js"></script>
+    <script src="js/assets/combo-lock.js"></script>
+    <script src="js/puzzle-hotspot-editor.js"></script>
+    <script src="js/play-mode.js"></script>
+    <script src="js/toolbar.js"></script>
+    <script src="data/project-data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
