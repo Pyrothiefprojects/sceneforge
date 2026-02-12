@@ -115,6 +115,7 @@ const AudioManager = (() => {
         if (musicEl) { musicEl.pause(); musicEl.remove(); musicEl = null; }
         currentMusicUrl = null;
         pendingMusic = null;
+        unlocked = false;
         stopSounds();
     }
 
