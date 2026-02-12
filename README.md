@@ -7,8 +7,8 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 - **Session 1:** 2:00 AM – 5:00 AM, Feb 11 — Core engine (scenes, hotspots, inventory, puzzles, play mode, game state)
 - **Session 2:** 4:00 PM – 10:00 PM, Feb 11 — Puzzle assets, combo lock, asset grouping, puzzle hotspots, action config unification, dialogue fixes, state change toggles, scene image generation (Sora), transition animation planning
 - **Session 3:** 12:00 AM – 6:00 AM, Feb 12 — Transition animations (PNG sequences + video), loop animations with placement/scale/reverse, reverse frames for state transitions, edit scene backgrounds, cleaned up export method and setup website.
-- **Session 4:** Feb 12 — Export system with path-based asset references, asset preloader with progress bar, deployment to GitHub Pages
-- **Total build time:** ~15 hours (so far)
+- **Session 4:** 6:30 AM - 9:00 AM, Feb 12 — Export system with path-based asset references, asset preloader with progress bar, deployment to GitHub Pages
+- **Total build time:** ~17.5 hours (so far)
 
 ## How It Works
 - Single HTML page — no frameworks, no bundler, no server required
