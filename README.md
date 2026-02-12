@@ -3,14 +3,6 @@
 ## What It Is
 SceneForge is a browser-based point-and-click puzzle game editor and engine built entirely in vanilla JavaScript. It includes a visual editor for designing scenes, hotspots, inventory items, interactive puzzles, and game progression — and a built-in play mode for testing the whole thing as a player would experience it.
 
-## Build Log
-- **Session 1:** 2:00 AM – 5:00 AM, Feb 11 — Core engine (scenes, hotspots, inventory, puzzles, play mode, game state)
-- **Session 2:** 4:00 PM – 10:00 PM, Feb 11 — Puzzle assets, combo lock, asset grouping, puzzle hotspots, action config unification, dialogue fixes, state change toggles, scene image generation (Sora), transition animation planning
-- **Session 3:** 12:00 AM – 6:00 AM, Feb 12 — Transition animations (PNG sequences + video), loop animations with placement/scale/reverse, reverse frames for state transitions, edit scene backgrounds, cleaned up export method and setup website.
-- **Session 4:** 6:30 AM - 9:00 AM, Feb 12 — Export system with path-based asset references, asset preloader with progress bar, deployment to GitHub Pages
-- **Session 5:** 9:00 AM - 12:00 PM, Feb 12 — Audio system (per-scene background music, per-action sound effects, looping sounds), cursor fixes, puzzle ID fix, music save/export fix, play mode toolbar redesign, typewriter dialogue box, console terminal puzzle asset type
-- **Total build time:** ~20.5 hours (so far)
-
 ## How It Works
 - Single HTML page — no frameworks, no bundler, no server required
 - Visual editor with toolbar sections for Scenes, Hotspots, Inventory, Puzzles, and Game State
@@ -249,3 +241,11 @@ On load, the preloader scans all asset URLs from `window.SCENEFORGE_PROJECT`, pr
 - [ ] Expand dialogue box theme — richer styling, character portraits or speaker names, multiple dialogue styles per context
 - [ ] Sound effects: cryo pod lid opening — attach audio to the cryo pod state change transition
 - [ ] Sound effects: console puzzle — keyboard typing sounds, error beep, success chime for the terminal asset
+
+## Build Log
+- **Session 1:** 2:00 AM – 5:00 AM, Feb 11 — Core engine (scenes, hotspots, inventory, puzzles, play mode, game state)
+- **Session 2:** 4:00 PM – 10:00 PM, Feb 11 — Puzzle assets, combo lock, asset grouping, puzzle hotspots, action config unification, dialogue fixes, state change toggles, scene image generation (Sora), transition animation planning
+- **Session 3:** 12:00 AM – 6:00 AM, Feb 12 — Transition animations (PNG sequences + video), loop animations with placement/scale/reverse, reverse frames for state transitions, edit scene backgrounds, cleaned up export method and setup website.
+- **Session 4:** 6:30 AM - 9:00 AM, Feb 12 — Export system with path-based asset references, asset preloader with progress bar, deployment to GitHub Pages
+- **Session 5:** 9:00 AM - 12:00 PM, Feb 12 — Audio system (per-scene background music, per-action sound effects, looping sounds), cursor fixes, puzzle ID fix, music save/export fix, play mode toolbar redesign, typewriter dialogue box, console terminal puzzle asset type
+- **Total build time:** ~20.5 hours (so far)
