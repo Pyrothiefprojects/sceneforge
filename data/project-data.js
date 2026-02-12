@@ -779,7 +779,7 @@ window.SCENEFORGE_PROJECT = {
         }
       ],
       "editingStateIndex": 0,
-      "music": "assets/audio/Scene0.enc"
+      "music": "assets/audio/Scene0.mp3"
     }
   ],
   "items": [
