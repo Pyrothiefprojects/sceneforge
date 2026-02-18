@@ -1,5 +1,7 @@
 # SceneForge
 
+> **SceneForge is source-available, not open source. See [LICENSE](LICENSE) for terms.**
+
 ## What It Is
 SceneForge is a browser-based point-and-click puzzle game editor and engine built entirely in vanilla JavaScript. It includes a visual editor for designing scenes, hotspots, inventory items, interactive puzzles, and game progression — and a built-in play mode for testing the whole thing as a player would experience it.
 

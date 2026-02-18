@@ -1,21 +1,59 @@
-MIT License
+SceneForge - Proprietary Source-Available License
 
-Copyright (c) 2026 Pyrothiefprojects
+Copyright (C) 2026 Pyrothiefprojects. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+TERMS AND CONDITIONS
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. OWNERSHIP
+   SceneForge and all associated source code, assets, documentation, and tools
+   are the exclusive property of Pyrothiefprojects. This software is protected
+   by copyright law.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. PERMITTED USE
+   You may:
+   a) View, read, and study the source code for personal, educational, or
+      reference purposes.
+   b) Fork or clone the repository for personal, non-commercial use only.
+   c) Use SceneForge to create your own puzzles, scenes, and game content
+      for personal enjoyment and non-commercial sharing.
+   d) Play and share content created with SceneForge, provided no fee is
+      charged and SceneForge is credited as the tool used.
+
+3. PROHIBITED USE
+   You may NOT:
+   a) Sell, sublicense, or commercially distribute SceneForge or any
+      modified version of it.
+   b) Sell, monetize, or commercially distribute any content, games,
+      puzzles, or assets created using SceneForge.
+   c) Redistribute SceneForge or any substantial portion of its source
+      code without prior written permission from Pyrothiefprojects.
+   d) Use SceneForge or its source code as part of any commercial product,
+      service, or offering.
+   e) Remove, alter, or obscure this license notice or any copyright
+      notices contained within the software.
+   f) Claim authorship or ownership of SceneForge or any of its components.
+
+4. CONTRIBUTIONS
+   Any contributions submitted to this project (via pull request, patch, or
+   otherwise) are granted to Pyrothiefprojects under the same terms as this
+   license, with full rights to use, modify, and incorporate them into the
+   project.
+
+5. COMMERCIAL RIGHTS
+   All commercial rights are exclusively reserved by Pyrothiefprojects.
+   SceneForge is part of a larger game suite under active development.
+   For commercial licensing inquiries, contact Pyrothiefprojects directly.
+
+6. DISCLAIMER OF WARRANTY
+   THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED. IN NO EVENT SHALL PYROTHIEFPROJECTS BE LIABLE FOR ANY CLAIM,
+   DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
+
+7. TERMINATION
+   Any violation of these terms immediately terminates your right to use,
+   view, or possess this software. Upon termination, you must destroy all
+   copies in your possession.
+
+8. GOVERNING LAW
+   This license shall be governed by and interpreted in accordance with
+   applicable copyright law.
