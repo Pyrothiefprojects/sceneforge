@@ -5,6 +5,9 @@ const GameState = (() => {
     let itemUseCounts = {};
     let sceneStates = {};
     let puzzleStates = {};
+    let removedAssets = new Set();
+    let clearedHotspots = new Set();
+    let assetPositionOverrides = {};
 
     function setFlag(name, value = true) {
         flags[name] = value;
@@ -20,9 +23,7 @@ const GameState = (() => {
     }
 
     function addToInventory(itemId) {
-        if (!playerInventory.includes(itemId)) {
-            playerInventory.push(itemId);
-        }
+        playerInventory.push(itemId);
     }
 
     function removeFromInventory(itemId) {
@@ -49,12 +50,47 @@ const GameState = (() => {
         }
     }
 
+    function removeAsset(assetId) {
+        removedAssets.add(assetId);
+    }
+
+    function isAssetRemoved(assetId) {
+        return removedAssets.has(assetId);
+    }
+
+    function restoreAsset(assetId) {
+        removedAssets.delete(assetId);
+    }
+
+    function clearHotspot(hotspotId) {
+        clearedHotspots.add(hotspotId);
+    }
+
+    function isHotspotCleared(hotspotId) {
+        return clearedHotspots.has(hotspotId);
+    }
+
+    function restoreHotspot(hotspotId) {
+        clearedHotspots.delete(hotspotId);
+    }
+
+    function setAssetPosition(assetId, pos) {
+        assetPositionOverrides[assetId] = pos;
+    }
+
+    function getAssetPosition(assetId) {
+        return assetPositionOverrides[assetId] || null;
+    }
+
     function reset() {
         flags = {};
         playerInventory = [];
         itemUseCounts = {};
         sceneStates = {};
         puzzleStates = {};
+        removedAssets = new Set();
+        clearedHotspots = new Set();
+        assetPositionOverrides = {};
     }
 
     function setSceneState(sceneId, index) {
@@ -405,7 +441,9 @@ const GameState = (() => {
                 }
                 if (p.rewardSceneState && p.rewardSceneState.sceneId) {
                     const scene = SceneManager.getScene(p.rewardSceneState.sceneId);
-                    tags.push('→ ' + (scene ? scene.name : '?') + ' state ' + ((p.rewardSceneState.stateIndex || 0) + 1));
+                    const rsi = p.rewardSceneState.stateIndex || 0;
+                    const rsLabel = scene && scene.states[rsi] && scene.states[rsi].background ? scene.states[rsi].background : 'state ' + (rsi + 1);
+                    tags.push('→ ' + (scene ? scene.name : '?') + ' ' + rsLabel);
                 }
                 html += `<span class="overview-item">${p.name}${tags.length > 0 ? ' <span class="overview-puzzle-tags">[' + tags.join(', ') + ']</span>' : ''}</span>`;
             }
@@ -460,6 +498,9 @@ const GameState = (() => {
         setSceneState, getSceneState,
         setPuzzleState, getPuzzleState,
         renderFlagsPanel, initToolbar,
+        removeAsset, isAssetRemoved, restoreAsset,
+        clearHotspot, isHotspotCleared, restoreHotspot,
+        setAssetPosition, getAssetPosition,
         addStep, removeStep, moveStep, getSteps, loadSteps, getNextHint
     };
 })();

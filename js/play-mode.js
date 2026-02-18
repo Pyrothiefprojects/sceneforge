@@ -7,6 +7,7 @@ const PlayMode = (() => {
     let typewriterDone = false;
     let hoveredHotspot = null;
     let itemCursorCache = {};
+    let pickMode = null; // { hotspot, assetId, targets: [{ hotspotId, stateIdx, points }] }
 
     const overlay = document.getElementById('inventory-overlay');
     const overlayGrid = document.getElementById('inventory-overlay-grid');
@@ -17,6 +18,9 @@ const PlayMode = (() => {
     const puzzleContent = document.getElementById('puzzle-overlay-content');
     const puzzleClose = document.getElementById('puzzle-overlay-close');
     let activePuzzleHotspot = null;
+    let wheelOpen = false;
+    const radialWheel = document.getElementById('radial-wheel');
+    const radialWheelItems = document.getElementById('radial-wheel-items');
 
     function enter() {
         active = true;
@@ -46,6 +50,8 @@ const PlayMode = (() => {
     function exit() {
         active = false;
         selectedItem = null;
+        if (wheelOpen) closeRadialWheel();
+        if (pickMode) exitPickMode();
         AudioManager.stop();
         LoopAnimator.stop();
         TransitionPlayer.cancel();
@@ -100,6 +106,86 @@ const PlayMode = (() => {
                 refreshInventoryOverlay();
             });
         });
+    }
+
+    // -- Radial Inventory Wheel --
+
+    function openRadialWheel(clientX, clientY) {
+        const inv = GameState.getInventory();
+        radialWheelItems.innerHTML = '';
+
+        // Clamp center so wheel stays in viewport
+        const padding = 80;
+        const cx = Math.max(padding, Math.min(window.innerWidth - padding, clientX));
+        const cy = Math.max(padding, Math.min(window.innerHeight - padding, clientY));
+
+        if (inv.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'radial-wheel-empty';
+            emptyEl.style.left = cx + 'px';
+            emptyEl.style.top = cy + 'px';
+            emptyEl.textContent = 'No items collected';
+            radialWheelItems.appendChild(emptyEl);
+        } else {
+            const radius = inv.length === 1 ? 0 : Math.max(70, inv.length * 18);
+            const angleStep = (2 * Math.PI) / inv.length;
+            const startAngle = -Math.PI / 2;
+
+            inv.forEach((itemId, i) => {
+                const item = InventoryEditor.getItem(itemId);
+                if (!item) return;
+
+                const angle = startAngle + angleStep * i;
+                const x = cx + Math.cos(angle) * radius;
+                const y = cy + Math.sin(angle) * radius;
+
+                const el = document.createElement('div');
+                el.className = 'radial-wheel-item' + (selectedItem === itemId ? ' selected' : '');
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                el.dataset.itemId = itemId;
+
+                if (item.image) {
+                    const img = document.createElement('img');
+                    img.src = item.image;
+                    img.alt = item.name;
+                    el.appendChild(img);
+                }
+
+                const nameEl = document.createElement('span');
+                nameEl.className = 'radial-wheel-item-name';
+                nameEl.textContent = item.name;
+                el.appendChild(nameEl);
+
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectedItem = itemId;
+                    Canvas.getCanvasElement().style.cursor = getItemCursor(itemId);
+                    closeRadialWheel();
+                });
+
+                el.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeRadialWheel();
+                });
+
+                radialWheelItems.appendChild(el);
+            });
+        }
+
+        radialWheel.classList.remove('hidden');
+        wheelOpen = true;
+    }
+
+    function closeRadialWheel() {
+        radialWheel.classList.add('hidden');
+        radialWheelItems.innerHTML = '';
+        wheelOpen = false;
+    }
+
+    function isWheelOpen() {
+        return wheelOpen;
     }
 
     // -- Puzzle Overlay --
@@ -466,10 +552,10 @@ const PlayMode = (() => {
             stateWidget.innerHTML = `
                 <div class="scene-card puzzle-state-card-widget">
                     <div class="scene-thumb">
-                        ${bgSrc ? `<img src="${bgSrc}" alt="State ${stateIdx + 1}" draggable="false">` : '<span class="scene-thumb-empty">No bg</span>'}
+                        ${bgSrc ? `<img src="${bgSrc}" alt="${bgSrc.split('/').pop() || ('State ' + (stateIdx + 1))}" draggable="false">` : '<span class="scene-thumb-empty">No bg</span>'}
                     </div>
                     <div class="scene-card-info">
-                        <span class="scene-card-meta">${assetCount} asset${assetCount !== 1 ? 's' : ''}${stateCount > 1 ? ' &middot; State ' + (stateIdx + 1) + '/' + stateCount : ''}</span>
+                        <span class="scene-card-meta">${assetCount} asset${assetCount !== 1 ? 's' : ''}${stateCount > 1 ? ' &middot; ' + (bgSrc ? bgSrc.split('/').pop() : 'State ' + (stateIdx + 1)) + ' (' + (stateIdx + 1) + '/' + stateCount + ')' : ''}</span>
                         ${stateCount > 1 ? `
                         <div class="scene-state-nav">
                             <button class="scene-state-btn puzzle-state-prev" title="Previous state">&larr;</button>
@@ -556,7 +642,20 @@ const PlayMode = (() => {
             layout.remove();
         }
 
-        puzzleOverlay.classList.add('hidden');
+        // Animate close: shrink panel + fade backdrop
+        const backdrop = puzzleOverlay.querySelector('.puzzle-overlay-backdrop');
+        const panel = puzzleOverlay.querySelector('.puzzle-overlay-panel');
+
+        if (backdrop) backdrop.classList.add('closing');
+        if (panel) panel.classList.add('closing');
+
+        const duration = 300; // match CSS animation duration
+        setTimeout(() => {
+            puzzleOverlay.classList.add('hidden');
+            if (backdrop) backdrop.classList.remove('closing');
+            if (panel) panel.classList.remove('closing');
+        }, duration);
+
         PuzzleAssets.closeAssetPopover();
         PuzzleAssets.stopPlacing();
         PuzzleAssets.stopConnecting();
@@ -573,23 +672,26 @@ const PlayMode = (() => {
         dialogueEl.className = 'dialogue-box dialogue-hidden';
         dialogueEl.addEventListener('click', () => {
             if (!typewriterDone) {
-                // First click: skip typewriter, show full text
                 if (typewriterInterval) { clearInterval(typewriterInterval); typewriterInterval = null; }
                 dialogueEl.textContent = dialogueEl.dataset.fullText || '';
                 typewriterDone = true;
                 return;
             }
-            // Second click: dismiss
             dismissDialogue();
         });
         document.body.appendChild(dialogueEl);
     }
 
-    function showDialogue(text) {
+    function showDialogue(text, duration) {
         if (!dialogueEl) return;
+        displayDialogue(text, duration);
+    }
+
+    function displayDialogue(text, duration) {
         if (dialogueTimer) { clearTimeout(dialogueTimer); dialogueTimer = null; }
         if (typewriterInterval) { clearInterval(typewriterInterval); typewriterInterval = null; }
 
+        const autoDismiss = duration || 10000;
         dialogueEl.dataset.fullText = text;
         dialogueEl.textContent = '';
         typewriterDone = false;
@@ -609,7 +711,7 @@ const PlayMode = (() => {
 
         dialogueTimer = setTimeout(() => {
             dismissDialogue();
-        }, 10000);
+        }, autoDismiss);
     }
 
     function dismissDialogue() {
@@ -617,6 +719,18 @@ const PlayMode = (() => {
         if (dialogueTimer) { clearTimeout(dialogueTimer); dialogueTimer = null; }
         if (typewriterInterval) { clearInterval(typewriterInterval); typewriterInterval = null; }
         dialogueEl.classList.add('dialogue-hidden');
+    }
+
+    // -- Sibling hotspot helpers --
+
+    function getHotspotBBox(hotspot) {
+        const xs = hotspot.points.map(p => p[0]);
+        const ys = hotspot.points.map(p => p[1]);
+        return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+    }
+
+    function bboxOverlap(a, b) {
+        return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY;
     }
 
     // -- Cursor helpers --
@@ -651,24 +765,202 @@ const PlayMode = (() => {
     function handleMouseMove(e) {
         if (!active) return;
 
+        // Pick mode intercept
+        if (pickMode) {
+            handlePickMouseMove(e);
+            return;
+        }
+
         const rect = Canvas.getCanvasElement().getBoundingClientRect();
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
         const img = Canvas.screenToImage(sx, sy);
 
         const hit = HotspotEditor.hitTest(img.x, img.y);
-        hoveredHotspot = hit;
-        Canvas.getCanvasElement().style.cursor = getActionCursor(hit);
+        hoveredHotspot = (hit && !GameState.isHotspotCleared(hit.id)) ? hit : null;
+        Canvas.getCanvasElement().style.cursor = getActionCursor(hoveredHotspot);
     }
 
     function getHoveredHotspot() {
         return hoveredHotspot;
     }
 
+    function fadeCanvasTransition(onDone, duration) {
+        const halfDur = (duration || 500) / 2;
+        const canvasEl = Canvas.getCanvasElement();
+        const ctx = Canvas.getContext();
+        let start = null;
+        let phase = 'out'; // fade out, then swap, then fade in
+
+        function step(ts) {
+            if (!start) start = ts;
+            const elapsed = ts - start;
+
+            if (phase === 'out') {
+                const t = Math.min(elapsed / halfDur, 1);
+                Canvas.render();
+                ctx.save();
+                ctx.fillStyle = `rgba(0,0,0,${t})`;
+                ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+                ctx.restore();
+                if (t >= 1) {
+                    onDone();
+                    phase = 'in';
+                    start = null;
+                    requestAnimationFrame(step);
+                    return;
+                }
+            } else {
+                const t = Math.min(elapsed / halfDur, 1);
+                Canvas.render();
+                ctx.save();
+                ctx.fillStyle = `rgba(0,0,0,${1 - t})`;
+                ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+                ctx.restore();
+                if (t >= 1) return;
+            }
+            requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    // -- Pick Mode (Move Asset) --
+
+    function enterPickMode(hotspot, assetId, targets) {
+        pickMode = { hotspot, assetId, targets };
+        Canvas.setPickModeTargets(targets);
+        Canvas.getCanvasElement().classList.add('pick-mode-cursor');
+    }
+
+    function exitPickMode() {
+        pickMode = null;
+        Canvas.clearPickModeTargets();
+        Canvas.clearPickGhost();
+        Canvas.getCanvasElement().classList.remove('pick-mode-cursor');
+        Canvas.getCanvasElement().style.cursor = 'default';
+    }
+
+    function handlePickMouseMove(e) {
+        if (!pickMode) return;
+        const rect = Canvas.getCanvasElement().getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const img = Canvas.screenToImage(sx, sy);
+
+        const scene = SceneManager.getCurrentScene();
+        if (!scene) return;
+
+        let found = null;
+        for (const target of pickMode.targets) {
+            if (HotspotEditor.pointInPolygon(img.x, img.y, target.points)) {
+                found = target;
+                break;
+            }
+        }
+
+        if (found) {
+            const asset = (scene.sceneAssets || []).find(a => a.id === pickMode.assetId);
+            if (asset) {
+                const pos = Canvas.getAssetStatePos(asset, found.stateIdx);
+                Canvas.setPickGhost(pickMode.assetId, pos);
+            }
+            Canvas.getCanvasElement().style.cursor = 'pointer';
+        } else {
+            Canvas.clearPickGhost();
+            Canvas.getCanvasElement().style.cursor = '';
+        }
+    }
+
+    function handlePickClick(e) {
+        if (!pickMode) return;
+        const rect = Canvas.getCanvasElement().getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const img = Canvas.screenToImage(sx, sy);
+
+        const scene = SceneManager.getCurrentScene();
+        if (!scene) return;
+
+        let found = null;
+        for (const target of pickMode.targets) {
+            if (HotspotEditor.pointInPolygon(img.x, img.y, target.points)) {
+                found = target;
+                break;
+            }
+        }
+
+        if (!found) {
+            // Clicked outside any target — cancel and restore asset to its position
+            const cancelAssetId = pickMode.assetId;
+            const cancelHotspot = pickMode.hotspot;
+            exitPickMode();
+            GameState.restoreAsset(cancelAssetId);
+            if (cancelHotspot && cancelHotspot.clearAfterClick) {
+                GameState.restoreHotspot(cancelHotspot.id);
+            }
+            Canvas.fadeAsset(cancelAssetId, 0, 1, 400);
+            return;
+        }
+
+        const assetId = pickMode.assetId;
+        const sourceHotspot = pickMode.hotspot;
+        const asset = (scene.sceneAssets || []).find(a => a.id === assetId);
+        if (!asset) { exitPickMode(); return; }
+
+        const targetPos = Canvas.getAssetStatePos(asset, found.stateIdx);
+        exitPickMode();
+
+        // Restore asset (assetChange may have marked it removed), set new position
+        GameState.restoreAsset(assetId);
+        GameState.setAssetPosition(assetId, { ...targetPos });
+
+        // Preserve positions of non-move assets before state change
+        const currentStateIdx = GameState.getSceneState(scene.id);
+        for (const a of (scene.sceneAssets || [])) {
+            if (a.id === assetId) continue;
+            if (GameState.isAssetRemoved(a.id)) continue;
+            if (!GameState.getAssetPosition(a.id)) {
+                const curPos = Canvas.getAssetStatePos(a, currentStateIdx);
+                GameState.setAssetPosition(a.id, { ...curPos });
+            }
+        }
+
+        // Switch scene state to target so that state's hotspot becomes active
+        GameState.setSceneState(scene.id, found.stateIdx);
+        const targetState = SceneManager.getState(scene, found.stateIdx);
+        if (targetState && targetState.backgroundData) {
+            Canvas.loadImage(targetState.backgroundData);
+        }
+
+        // Un-clear all connected hotspots so they can be used again
+        const connections = SceneManager.getConnectionsForHotspot(scene.id, sourceHotspot.id);
+        for (const conn of connections) {
+            for (const hId of conn.hotspotIds) {
+                GameState.restoreHotspot(hId);
+            }
+        }
+
+        Canvas.fadeAsset(assetId, 0, 1, 400);
+    }
+
     // -- Click handling --
 
     function handleClick(e) {
         if (!active) return;
+
+        // Close radial wheel if open
+        if (wheelOpen) {
+            selectedItem = null;
+            Canvas.getCanvasElement().style.cursor = 'default';
+            closeRadialWheel();
+            return;
+        }
+
+        // Pick mode intercept
+        if (pickMode) {
+            handlePickClick(e);
+            return;
+        }
 
         const rect = Canvas.getCanvasElement().getBoundingClientRect();
         const sx = e.clientX - rect.left;
@@ -677,6 +969,7 @@ const PlayMode = (() => {
 
         const hotspot = HotspotEditor.hitTest(img.x, img.y);
         if (!hotspot) return;
+        if (GameState.isHotspotCleared(hotspot.id)) return;
 
         // Check conditions
         if (!GameState.checkFlags(hotspot.requires)) {
@@ -698,17 +991,19 @@ const PlayMode = (() => {
                 if (autoFlag) GameState.setFlag(autoFlag);
                 break;
 
-            case 'clue':
+            case 'clue': {
+                const clueDuration = (hotspot.moveAsset && hotspot.moveAsset.assetId) ? 3000 : undefined;
                 if (action.clueId) {
                     const clue = PuzzleEditor.getPuzzle(action.clueId);
                     if (clue) {
                         openPuzzleOverlay(clue, hotspot, action.text || clue.completionText);
                     } else {
-                        if (action.text) showDialogue(action.text);
+                        if (action.text) showDialogue(action.text, clueDuration);
                     }
                 } else {
-                    if (action.text) showDialogue(action.text);
+                    if (action.text) showDialogue(action.text, clueDuration);
                 }
+            }
                 if (autoFlag) GameState.setFlag(autoFlag);
                 break;
 
@@ -725,11 +1020,12 @@ const PlayMode = (() => {
                 break;
 
             case 'pickup':
-                if (action.itemId && !GameState.hasItem(action.itemId)) {
+                if (action.itemId) {
                     GameState.addToInventory(action.itemId);
                     if (autoFlag) GameState.setFlag(autoFlag);
                     const item = InventoryEditor.getItem(action.itemId);
-                    showDialogue(`Picked up: ${item ? item.name : action.itemId}`);
+                    const itemName = item ? item.name : action.itemId.replace(/_\d+$/, '').replace(/_/g, ' ');
+                    showDialogue(`Picked up: ${itemName}`, 3000);
                 } else {
                     actionSucceeded = false;
                 }
@@ -741,10 +1037,10 @@ const PlayMode = (() => {
                     if (autoFlag) GameState.setFlag(autoFlag);
                     selectedItem = null;
                     Canvas.getCanvasElement().style.cursor = getActionCursor(hotspot);
-                    showDialogue('Used the item.');
+                    showDialogue('Used the item.', 3000);
                 } else {
                     actionSucceeded = false;
-                    showDialogue("That didn't work");
+                    showDialogue("That didn't work", 3000);
                 }
                 break;
 
@@ -758,6 +1054,33 @@ const PlayMode = (() => {
                     }
                 }
                 break;
+        }
+
+        // Asset change — hide or show scene asset
+        if (actionSucceeded && hotspot.assetChange && hotspot.assetChange.assetId) {
+            const acMode = hotspot.assetChange.mode || 'hide';
+            const acId = hotspot.assetChange.assetId;
+            const scene = SceneManager.getCurrentScene();
+            const acAsset = scene ? (scene.sceneAssets || []).find(a => a.id === acId) : null;
+
+            if (acAsset && acAsset.transition === 'fade') {
+                if (acMode === 'show') {
+                    GameState.restoreAsset(acId);
+                    Canvas.fadeAsset(acId, 0, 1, 500);
+                } else {
+                    Canvas.fadeAsset(acId, 1, 0, 500, () => {
+                        GameState.removeAsset(acId);
+                        Canvas.render();
+                    });
+                }
+            } else {
+                if (acMode === 'show') {
+                    GameState.restoreAsset(acId);
+                } else {
+                    GameState.removeAsset(acId);
+                }
+                Canvas.render();
+            }
         }
 
         // Scene state change — only fires if the action succeeded
@@ -783,23 +1106,93 @@ const PlayMode = (() => {
                         frameDuration: sc.frameDuration || 100,
                         target: 'canvas'
                     }).then(onDone);
+                } else if (sc.effect === 'fade') {
+                    fadeCanvasTransition(onDone);
                 } else {
                     onDone();
                 }
             }
         }
+
+        // Clear hotspot after click
+        if (actionSucceeded && hotspot.clearAfterClick) {
+            GameState.clearHotspot(hotspot.id);
+        }
+
+        // Clear sibling hotspots (same item OR same assetChange target, spatially touching)
+        if (actionSucceeded && hotspot.clearGroup) {
+            const scene = SceneManager.getCurrentScene();
+            if (scene) {
+                const srcBBox = getHotspotBBox(hotspot);
+                const srcItemId = action.type === 'pickup' ? action.itemId : null;
+                const srcAssetId = hotspot.assetChange ? hotspot.assetChange.assetId : null;
+                for (const state of scene.states) {
+                    for (const hs of (state.hotspots || [])) {
+                        if (hs.id === hotspot.id) continue;
+                        const sameItem = srcItemId && hs.action && hs.action.type === 'pickup' && hs.action.itemId === srcItemId;
+                        const sameAsset = srcAssetId && hs.assetChange && hs.assetChange.assetId === srcAssetId;
+                        if ((sameItem || sameAsset) && bboxOverlap(srcBBox, getHotspotBBox(hs))) {
+                            GameState.clearHotspot(hs.id);
+                            if (hs.assetChange && hs.assetChange.assetId && (hs.assetChange.mode || 'hide') === 'hide') {
+                                GameState.removeAsset(hs.assetChange.assetId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Move asset — enter pick mode
+        if (actionSucceeded && hotspot.moveAsset && hotspot.moveAsset.assetId) {
+            const scene = SceneManager.getCurrentScene();
+            if (scene) {
+                const connections = SceneManager.getConnectionsForHotspot(scene.id, hotspot.id);
+                if (connections.length > 0) {
+                    const targets = [];
+                    for (const conn of connections) {
+                        for (const hId of conn.hotspotIds) {
+                            if (hId === hotspot.id) continue;
+                            for (let si = 0; si < scene.states.length; si++) {
+                                const hs = (scene.states[si].hotspots || []).find(h => h.id === hId);
+                                if (hs) {
+                                    targets.push({ hotspotId: hId, stateIdx: si, points: hs.points });
+                                }
+                            }
+                        }
+                    }
+                    if (targets.length > 0) {
+                        enterPickMode(hotspot, hotspot.moveAsset.assetId, targets);
+                    }
+                }
+            }
+        }
+    }
+
+    function handleContextMenu(e) {
+        if (!active) return;
+        e.preventDefault();
+        if (pickMode) return;
+        if (wheelOpen) {
+            selectedItem = null;
+            Canvas.getCanvasElement().style.cursor = 'default';
+            closeRadialWheel();
+            return;
+        }
+        openRadialWheel(e.clientX, e.clientY);
     }
 
     function bindCanvas() {
         const el = Canvas.getCanvasElement();
         el.addEventListener('click', handleClick);
         el.addEventListener('mousemove', handleMouseMove);
+        el.addEventListener('contextmenu', handleContextMenu);
     }
 
     function unbindCanvas() {
         const el = Canvas.getCanvasElement();
         el.removeEventListener('click', handleClick);
         el.removeEventListener('mousemove', handleMouseMove);
+        el.removeEventListener('contextmenu', handleContextMenu);
         hoveredHotspot = null;
         el.style.cursor = 'default';
     }
@@ -830,7 +1223,37 @@ const PlayMode = (() => {
                 showDialogue('No more hints — you\'ve done everything!');
             }
         });
+
+        // Radial wheel: click outside items to dismiss + deselect
+        radialWheel.addEventListener('click', (e) => {
+            if (!e.target.closest('.radial-wheel-item')) {
+                selectedItem = null;
+                Canvas.getCanvasElement().style.cursor = 'default';
+                closeRadialWheel();
+            }
+        });
+        radialWheel.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            selectedItem = null;
+            Canvas.getCanvasElement().style.cursor = 'default';
+            closeRadialWheel();
+        });
+
+        // Right-click in puzzle overlay opens radial wheel
+        puzzleOverlay.addEventListener('contextmenu', (e) => {
+            if (!active) return;
+            e.preventDefault();
+            if (wheelOpen) {
+                closeRadialWheel();
+                return;
+            }
+            openRadialWheel(e.clientX, e.clientY);
+        });
     }
 
-    return { enter, exit, isActive, getHoveredHotspot, init, showDialogue, openPuzzleOverlay, closePuzzleOverlay };
+    function isPickMode() {
+        return pickMode !== null;
+    }
+
+    return { enter, exit, isActive, isPickMode, exitPickMode, getHoveredHotspot, init, showDialogue, openPuzzleOverlay, closePuzzleOverlay, openInventoryOverlay, closeInventoryOverlay, isWheelOpen, closeRadialWheel };
 })();

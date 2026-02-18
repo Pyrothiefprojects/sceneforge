@@ -271,6 +271,18 @@ const PuzzleHotspotEditor = (() => {
         if (autoFlag) GameState.setFlag(autoFlag);
 
         PuzzleAssets.dispatchActionObj(hotspot.action);
+
+        // Asset change — hide or show scene asset
+        if (hotspot.assetChange && hotspot.assetChange.assetId) {
+            const acMode = hotspot.assetChange.mode || 'hide';
+            if (acMode === 'show') {
+                GameState.restoreAsset(hotspot.assetChange.assetId);
+            } else {
+                GameState.removeAsset(hotspot.assetChange.assetId);
+            }
+            Canvas.render();
+        }
+
         if (hotspot.stateChange && hotspot.stateChange.stateIndex != null) {
             PuzzleAssets.dispatchActionObj({
                 type: 'puzzle_state',
@@ -278,9 +290,12 @@ const PuzzleHotspotEditor = (() => {
                 frames: hotspot.stateChange.frames || [],
                 frameDuration: hotspot.stateChange.frameDuration || 100,
                 video: hotspot.stateChange.video || null,
-                reverse: hotspot.stateChange.reverse || false
+                reverse: hotspot.stateChange.reverse || false,
+                effect: hotspot.stateChange.effect || null
             });
         }
+
+        if (hotspot.clearAfterClick) GameState.clearHotspot(hotspot.id);
     }
 
     // -- Mouse Event Handlers --
@@ -407,6 +422,10 @@ const PuzzleHotspotEditor = (() => {
             ${ActionConfig.renderStateChangeToggle(hotspot, 'puzzle-hs-pop', puzzleStates)}
             ${ActionConfig.renderLoopToggle(hotspot, 'puzzle-hs-pop')}
             ${ActionConfig.renderSoundToggle(hotspot, 'puzzle-hs-pop')}
+            ${ActionConfig.renderAssetChangeToggle(hotspot, 'puzzle-hs-pop')}
+            <div class="popover-field">
+                <label><input type="checkbox" id="puzzle-hs-pop-clear-after" ${hotspot.clearAfterClick ? 'checked' : ''}> Clear after click</label>
+            </div>
             <div style="margin-top:8px;">
                 <button class="panel-btn danger" id="puzzle-hs-pop-delete">Delete</button>
             </div>
@@ -435,6 +454,12 @@ const PuzzleHotspotEditor = (() => {
         ActionConfig.bindStateChangeToggle(popoverEl, hotspot, 'puzzle-hs-pop');
         ActionConfig.bindLoopToggle(popoverEl, hotspot, 'puzzle-hs-pop');
         ActionConfig.bindSoundToggle(popoverEl, hotspot, 'puzzle-hs-pop');
+        ActionConfig.bindAssetChangeToggle(popoverEl, hotspot, 'puzzle-hs-pop');
+
+        const clearCb = popoverEl.querySelector('#puzzle-hs-pop-clear-after');
+        if (clearCb) {
+            clearCb.addEventListener('change', () => { hotspot.clearAfterClick = clearCb.checked; });
+        }
 
         // Delete
         popoverEl.querySelector('#puzzle-hs-pop-delete').addEventListener('click', () => {

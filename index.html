@@ -16,11 +16,11 @@
                 <button class="toolbar-btn" data-section="inventory">Inventory</button>
                 <button class="toolbar-btn" data-section="puzzle">Puzzle</button>
                 <button class="toolbar-btn" data-section="gamestate">Game State</button>
+                <button class="toolbar-btn" data-section="image">Image</button>
             </div>
         </div>
         <div class="toolbar-right">
-            <button id="save-btn" class="toolbar-btn">Save</button>
-            <button id="load-btn" class="toolbar-btn">Load</button>
+            <button id="load-btn" class="toolbar-btn">Import</button>
             <button id="export-btn" class="toolbar-btn">Export</button>
             <input id="json-file-input" type="file" accept=".json" style="display:none">
             <div class="toolbar-divider"></div>
@@ -28,13 +28,40 @@
             <button id="play-hint-btn" class="toolbar-btn hidden" title="Hint">&#63;</button>
             <button id="mode-toggle" class="toolbar-btn mode-btn">Play</button>
         </div>
-        <div id="toolbar-panel" class="toolbar-panel hidden">
-            <!-- Section panels injected here by JS -->
+    </div>
+
+    <div id="toolbar-panel" class="editor-float-panel hidden">
+        <div class="float-panel-header" id="float-panel-header">
+            <span class="float-panel-title" id="float-panel-title">Editor</span>
+            <button class="float-panel-close" id="float-panel-close">&times;</button>
         </div>
+        <div id="float-panel-body"></div>
+    </div>
+
+    <div id="blueprint-tools-panel" class="editor-float-panel editor-float-panel-right hidden">
+        <div class="float-panel-header">
+            <span class="float-panel-title">Blueprint Tools</span>
+            <button class="float-panel-close" id="blueprint-tools-close">&times;</button>
+        </div>
+        <div id="blueprint-tools-body" class="blueprint-tools-body"></div>
+    </div>
+
+    <div id="ideogram-tools-panel" class="editor-float-panel editor-float-panel-right hidden">
+        <div class="float-panel-header">
+            <span class="float-panel-title">Ideogram Tools</span>
+            <button class="float-panel-close" id="ideogram-tools-close">&times;</button>
+        </div>
+        <div id="ideogram-tools-body" class="blueprint-tools-body"></div>
     </div>
 
     <div id="viewport" class="viewport">
         <canvas id="game-canvas"></canvas>
+        <canvas id="blueprint-canvas" class="hidden"></canvas>
+        <div id="play-overlay-controls" class="play-overlay-controls hidden">
+            <button id="play-overlay-edit" class="play-overlay-btn" title="Edit">&#9998;</button>
+            <button id="play-overlay-hint" class="play-overlay-btn" title="Hint">?</button>
+            <button id="play-overlay-inventory" class="play-overlay-btn" title="Inventory">&#9776;</button>
+        </div>
         <div id="hotspot-overlay" class="hotspot-overlay"></div>
     </div>
 
@@ -48,6 +75,11 @@
             </div>
             <div id="inventory-overlay-grid" class="inventory-overlay-grid"></div>
         </div>
+    </div>
+
+    <!-- Radial inventory wheel (play mode) -->
+    <div id="radial-wheel" class="radial-wheel hidden">
+        <div id="radial-wheel-items" class="radial-wheel-items"></div>
     </div>
 
     <!-- Puzzle overlay (play mode) -->
@@ -71,6 +103,7 @@
     </div>
 
     <script src="js/game-state.js"></script>
+    <script src="js/blueprint-editor.js"></script>
     <script src="js/scene-manager.js"></script>
     <script src="js/canvas.js"></script>
     <script src="js/action-config.js"></script>
@@ -85,6 +118,8 @@
     <script src="js/assets/console-terminal.js"></script>
     <script src="js/puzzle-hotspot-editor.js"></script>
     <script src="js/play-mode.js"></script>
+    <script src="js/image-editor.js"></script>
+    <script src="js/ideogram-editor.js"></script>
     <script src="js/toolbar.js"></script>
     <script src="data/project-data.js"></script>
     <script src="js/preloader.js"></script>

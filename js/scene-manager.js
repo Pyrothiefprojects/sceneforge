@@ -13,7 +13,9 @@ const SceneManager = (() => {
                 hotspots: []
             }],
             editingStateIndex: 0,
-            music: null
+            music: null,
+            sceneAssets: [],
+            hotspotConnections: []
         };
         scenes.push(scene);
         currentSceneId = id;
@@ -72,24 +74,73 @@ const SceneManager = (() => {
         return scene && scene.states ? scene.states.length : 0;
     }
 
+    function getStateName(state, index) {
+        return (state && state.name) || (state && state.background) || ('State ' + (index + 1));
+    }
+
+    function renameState(sceneId, stateIdx, name) {
+        const scene = getScene(sceneId);
+        if (!scene || !scene.states[stateIdx]) return;
+        scene.states[stateIdx].name = name || null;
+    }
+
+    // -- Hotspot Connections --
+
+    function addConnection(sceneId, hotspotIds) {
+        const scene = getScene(sceneId);
+        if (!scene) return null;
+        if (!scene.hotspotConnections) scene.hotspotConnections = [];
+        const id = 'conn_' + Date.now();
+        scene.hotspotConnections.push({ id, hotspotIds: [...hotspotIds] });
+        return id;
+    }
+
+    function removeConnection(sceneId, connId) {
+        const scene = getScene(sceneId);
+        if (!scene || !scene.hotspotConnections) return;
+        scene.hotspotConnections = scene.hotspotConnections.filter(c => c.id !== connId);
+    }
+
+    function getConnections(sceneId) {
+        const scene = getScene(sceneId);
+        return (scene && scene.hotspotConnections) || [];
+    }
+
+    function getConnectionsForHotspot(sceneId, hotspotId) {
+        const scene = getScene(sceneId);
+        if (!scene || !scene.hotspotConnections) return [];
+        return scene.hotspotConnections.filter(c => c.hotspotIds.includes(hotspotId));
+    }
+
     function addState(sceneId, backgroundData, fileName) {
         const scene = getScene(sceneId);
         if (!scene) return;
 
-        // Deep-copy hotspots from current state
-        const currentState = getCurrentState(scene);
-        const copiedHotspots = currentState
-            ? JSON.parse(JSON.stringify(currentState.hotspots))
-            : [];
+        // Each state gets its own independent hotspots
+        const copiedHotspots = [];
+
+        const prevIdx = scene.editingStateIndex || 0;
 
         scene.states.push({
+            name: null,
             background: fileName || null,
             backgroundData: backgroundData || null,
             hotspots: copiedHotspots
         });
 
+        const newIdx = scene.states.length - 1;
+
+        // Copy statePositions for existing assets
+        if (scene.sceneAssets) {
+            for (const a of scene.sceneAssets) {
+                if (!a.statePositions) a.statePositions = {};
+                const srcPos = a.statePositions[prevIdx] || { x: a.x, y: a.y, width: a.width, height: a.height };
+                a.statePositions[newIdx] = { ...srcPos };
+            }
+        }
+
         // Switch to the new state
-        scene.editingStateIndex = scene.states.length - 1;
+        scene.editingStateIndex = newIdx;
     }
 
     function removeState(sceneId, stateIndex) {
@@ -98,6 +149,23 @@ const SceneManager = (() => {
         scene.states.splice(stateIndex, 1);
         if (scene.editingStateIndex >= scene.states.length) {
             scene.editingStateIndex = scene.states.length - 1;
+        }
+        // Adjust scene asset visibleStates and statePositions
+        if (scene.sceneAssets) {
+            for (const a of scene.sceneAssets) {
+                a.visibleStates = a.visibleStates
+                    .filter(i => i !== stateIndex)
+                    .map(i => i > stateIndex ? i - 1 : i);
+                if (a.statePositions) {
+                    const newPositions = {};
+                    for (const key of Object.keys(a.statePositions)) {
+                        const k = parseInt(key);
+                        if (k === stateIndex) continue;
+                        newPositions[k > stateIndex ? k - 1 : k] = a.statePositions[key];
+                    }
+                    a.statePositions = newPositions;
+                }
+            }
         }
     }
 
@@ -131,6 +199,7 @@ const SceneManager = (() => {
         }
         Canvas.render();
         renderSceneList();
+        renderSceneAssetList();
     }
 
     function renderSceneList() {
@@ -157,9 +226,11 @@ const SceneManager = (() => {
                 </div>
                 <div class="scene-card-info">
                     <input class="scene-card-name" value="${s.name}" data-id="${s.id}" spellcheck="false">
-                    <span class="scene-card-meta">${hotspotCount} hotspot${hotspotCount !== 1 ? 's' : ''}${stateCount > 1 ? ' · State ' + (stateIdx + 1) + '/' + stateCount : ''}</span>
+                    <span class="scene-card-meta">${hotspotCount} hotspot${hotspotCount !== 1 ? 's' : ''}${stateCount > 1 ? ' · ' + getStateName(state, stateIdx) + ' (' + (stateIdx + 1) + '/' + stateCount + ')' : ''}</span>
                     ${stateCount > 1 ? `
                     <div class="scene-state-nav">
+                        <input class="scene-state-name-input" value="${state.name || ''}"
+                               data-id="${s.id}" data-state-idx="${stateIdx}" placeholder="${state.background || ('State ' + (stateIdx + 1))}" spellcheck="false">
                         <button class="scene-state-btn scene-state-prev" data-id="${s.id}" title="Previous state">&larr;</button>
                         <button class="scene-state-btn scene-state-next" data-id="${s.id}" title="Next state">&rarr;</button>
                         <button class="scene-state-btn scene-state-remove" data-id="${s.id}" title="Remove this state">&times;</button>
@@ -274,7 +345,7 @@ const SceneManager = (() => {
                 input.addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
-                    const path = 'assets/transitions/' + file.name;
+                    const path = 'assets/scenes/' + file.name;
                     addState(sceneId, path, file.name);
                     if (currentSceneId === sceneId) {
                         const scene = getScene(sceneId);
@@ -332,6 +403,13 @@ const SceneManager = (() => {
             });
         });
 
+        // State name editing
+        container.querySelectorAll('.scene-state-name-input').forEach(input => {
+            input.addEventListener('change', () => {
+                renameState(input.dataset.id, parseInt(input.dataset.stateIdx), input.value.trim());
+            });
+        });
+
         // Edit background image for current state
         container.querySelectorAll('.scene-card-edit-bg').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -345,7 +423,7 @@ const SceneManager = (() => {
                     if (!file) return;
                     const state = getCurrentState(scene);
                     if (!state) return;
-                    const path = 'assets/transitions/' + file.name;
+                    const path = 'assets/scenes/' + file.name;
                     state.backgroundData = path;
                     state.background = file.name;
                     if (currentSceneId === scene.id) {
@@ -366,12 +444,15 @@ const SceneManager = (() => {
                 name: s.name,
                 states: s.states,
                 editingStateIndex: s.editingStateIndex || 0,
-                music: s.music || null
+                music: s.music || null,
+                sceneAssets: s.sceneAssets || []
             })),
             items: InventoryEditor.getAllItems(),
             puzzles: PuzzleEditor.getAllPuzzles(),
             gameState: GameState.getDefinedFlags(),
-            progressionSteps: GameState.getSteps()
+            progressionSteps: GameState.getSteps(),
+            blueprint: BlueprintEditor.getBlueprintData(),
+            ideogramData: IdeogramEditor.getIdeogramData()
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -399,6 +480,24 @@ const SceneManager = (() => {
                         editingStateIndex: 0
                     };
                 }
+                if (!s.sceneAssets) s.sceneAssets = [];
+                if (!s.hotspotConnections) s.hotspotConnections = [];
+                // Migrate asset properties for older saves
+                s.sceneAssets = s.sceneAssets.map(a => {
+                    if (!a.visibleStates) a.visibleStates = s.states.map((_, i) => i);
+                    if (a.placed === undefined) a.placed = false;
+                    if (a.layer === undefined) a.layer = 0;
+                    if (!a.linkedItem) a.linkedItem = null;
+                    if (!a.transition) a.transition = null;
+                    if (a.lockPosition === undefined) a.lockPosition = false;
+                    if (!a.statePositions) {
+                        a.statePositions = {};
+                        s.states.forEach((_, i) => {
+                            a.statePositions[i] = { x: a.x, y: a.y, width: a.width, height: a.height };
+                        });
+                    }
+                    return a;
+                });
                 return s;
             });
             if (scenes.length > 0) {
@@ -414,7 +513,205 @@ const SceneManager = (() => {
         if (data.progressionSteps) {
             GameState.loadSteps(data.progressionSteps);
         }
+        if (data.blueprint) {
+            BlueprintEditor.loadBlueprintData(data.blueprint);
+        }
+        if (data.ideogramData) {
+            IdeogramEditor.loadIdeogramData(data.ideogramData);
+        }
         renderSceneList();
+    }
+
+    // ── Scene Asset Cards ──
+
+    function renderSceneAssetList() {
+        const container = document.getElementById('scene-asset-list');
+        if (!container) return;
+
+        const scene = getCurrentScene();
+        if (!scene || !scene.sceneAssets || scene.sceneAssets.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const stateIdx = scene.editingStateIndex || 0;
+        const stateCount = scene.states.length;
+
+        container.innerHTML = scene.sceneAssets.map(asset => {
+            const pos = Canvas.getAssetStatePos(asset, stateIdx);
+            return `
+            <div class="scene-card scene-asset-card" data-asset-id="${asset.id}">
+                <div class="scene-thumb">
+                    <img src="${asset.imageData || asset.src}" alt="${asset.name}" draggable="false">
+                </div>
+                <div class="scene-card-info">
+                    <input class="scene-card-name scene-asset-name" value="${asset.name}"
+                           data-asset-id="${asset.id}" spellcheck="false">
+                    <span class="scene-card-meta">${Math.round(pos.width)} × ${Math.round(pos.height)} · L${asset.layer || 0}${asset.placed ? ' · Placed' : ''}</span>
+                    <div class="scene-asset-states">
+                        ${scene.states.map((st, i) => `
+                            <label class="scene-asset-state-check">
+                                <input type="checkbox" data-asset-id="${asset.id}"
+                                       data-state-idx="${i}"
+                                       ${asset.visibleStates.includes(i) ? 'checked' : ''}>
+                                <span>${getStateName(st, i).substring(0, 12)}</span>${asset.lockPosition && (asset.lockPositionState || 0) === i ? '<span class="asset-lock-icon" title="Locked position state">&#x1F512;</span>' : ''}
+                            </label>
+                        `).join('')}
+                    </div>
+                    ${stateCount > 1 ? `
+                    <div class="scene-state-nav scene-asset-pos-nav">
+                        <span class="scene-card-meta">Pos: S${stateIdx + 1}/${stateCount}</span>
+                        <button class="scene-state-btn scene-asset-pos-prev" data-asset-id="${asset.id}" title="Previous state position">&larr;</button>
+                        <button class="scene-state-btn scene-asset-pos-next" data-asset-id="${asset.id}" title="Next state position">&rarr;</button>
+                    </div>` : ''}
+                </div>
+                <div class="scene-card-actions" style="flex-shrink:0">
+                    <button class="scene-card-edit scene-asset-edit"
+                            data-asset-id="${asset.id}" title="Change image">Edit</button>
+                    <button class="scene-card-add-state scene-asset-add-state"
+                            data-asset-id="${asset.id}" title="Add state">+State</button>
+                    <button class="scene-card-delete scene-asset-delete"
+                            data-asset-id="${asset.id}" title="Remove asset">&times;</button>
+                </div>
+            </div>`;
+        }).join('');
+
+        bindAssetCardEvents(container, scene);
+    }
+
+    function bindAssetCardEvents(container, scene) {
+        // Rename
+        container.querySelectorAll('.scene-asset-name').forEach(input => {
+            input.addEventListener('change', () => {
+                const asset = scene.sceneAssets.find(a => a.id === input.dataset.assetId);
+                if (asset) asset.name = input.value;
+            });
+        });
+
+        // State checkboxes
+        container.querySelectorAll('.scene-asset-state-check input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const asset = scene.sceneAssets.find(a => a.id === cb.dataset.assetId);
+                if (!asset) return;
+                const idx = parseInt(cb.dataset.stateIdx);
+                if (cb.checked) {
+                    if (!asset.visibleStates.includes(idx)) asset.visibleStates.push(idx);
+                    // Auto-initialize position from current state
+                    if (!asset.statePositions) asset.statePositions = {};
+                    if (!asset.statePositions[idx]) {
+                        const curIdx = scene.editingStateIndex || 0;
+                        const curPos = asset.statePositions[curIdx] || { x: asset.x, y: asset.y, width: asset.width, height: asset.height };
+                        asset.statePositions[idx] = { ...curPos };
+                    }
+                } else {
+                    asset.visibleStates = asset.visibleStates.filter(i => i !== idx);
+                }
+                Canvas.render();
+            });
+        });
+
+        // Delete
+        container.querySelectorAll('.scene-asset-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = scene.sceneAssets.findIndex(a => a.id === btn.dataset.assetId);
+                if (idx !== -1) {
+                    if (scene.sceneAssets[idx].imageData) URL.revokeObjectURL(scene.sceneAssets[idx].imageData);
+                    scene.sceneAssets.splice(idx, 1);
+                    Canvas.selectSceneAsset(null);
+                    renderSceneAssetList();
+                    Canvas.render();
+                }
+            });
+        });
+
+        // Edit (re-select image)
+        container.querySelectorAll('.scene-asset-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const asset = scene.sceneAssets.find(a => a.id === btn.dataset.assetId);
+                if (!asset) return;
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.addEventListener('change', (ev) => {
+                    const file = ev.target.files[0];
+                    if (!file) return;
+                    if (asset.imageData) URL.revokeObjectURL(asset.imageData);
+                    const url = URL.createObjectURL(file);
+                    asset.src = 'assets/items/' + file.name;
+                    asset.imageData = url;
+                    const img = new Image();
+                    img.onload = () => {
+                        asset.naturalWidth = img.naturalWidth;
+                        asset.naturalHeight = img.naturalHeight;
+                        Canvas.loadAssetImage(url).then(() => {
+                            renderSceneAssetList();
+                            Canvas.render();
+                        });
+                    };
+                    img.src = url;
+                });
+                input.click();
+            });
+        });
+
+        // Click card to select on canvas
+        container.querySelectorAll('.scene-asset-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.scene-asset-delete') || e.target.closest('.scene-asset-edit') || e.target.closest('.scene-asset-name') || e.target.closest('.scene-asset-state-check') || e.target.closest('.scene-asset-pos-nav') || e.target.closest('.scene-asset-add-state')) return;
+                const asset = scene.sceneAssets.find(a => a.id === card.dataset.assetId);
+                if (asset) {
+                    Canvas.selectSceneAsset(asset);
+                }
+            });
+        });
+
+        // Asset position state nav
+        container.querySelectorAll('.scene-asset-pos-prev').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = (scene.editingStateIndex || 0) - 1;
+                if (idx >= 0) {
+                    setEditingState(scene.id, idx);
+                    renderSceneList();
+                    renderSceneAssetList();
+                }
+            });
+        });
+        container.querySelectorAll('.scene-asset-pos-next').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = (scene.editingStateIndex || 0) + 1;
+                if (idx < scene.states.length) {
+                    setEditingState(scene.id, idx);
+                    renderSceneList();
+                    renderSceneAssetList();
+                }
+            });
+        });
+
+        // Asset +State button
+        container.querySelectorAll('.scene-asset-add-state').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.addEventListener('change', (ev) => {
+                    const file = ev.target.files[0];
+                    if (!file) return;
+                    const path = 'assets/scenes/' + file.name;
+                    addState(scene.id, path, file.name);
+                    const st = getCurrentState(scene);
+                    if (st && st.backgroundData) Canvas.loadImage(st.backgroundData);
+                    Canvas.render();
+                    renderSceneList();
+                    renderSceneAssetList();
+                });
+                input.click();
+            });
+        });
     }
 
     function initToolbar() {
@@ -428,7 +725,7 @@ const SceneManager = (() => {
         fileInput.addEventListener('change', (e) => {
             const files = Array.from(e.target.files);
             if (files.length === 0) return;
-            const basePath = 'assets/transitions';
+            const basePath = 'assets/scenes';
 
             let lastScene = null;
             files.forEach(file => {
@@ -442,13 +739,64 @@ const SceneManager = (() => {
             }
             fileInput.value = '';
         });
+
+        // Add Asset button
+        const addAssetBtn = document.getElementById('scene-asset-add');
+        const assetFileInput = document.getElementById('scene-asset-file-input');
+        if (addAssetBtn && assetFileInput) {
+            addAssetBtn.addEventListener('click', () => {
+                if (!currentSceneId) return;
+                assetFileInput.click();
+            });
+            assetFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const scene = getCurrentScene();
+                if (!scene) return;
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    const defaultPos = { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
+                    const statePositions = {};
+                    scene.states.forEach((_, i) => { statePositions[i] = { ...defaultPos }; });
+
+                    const asset = {
+                        id: 'scene_asset_' + Date.now(),
+                        name: file.name.replace(/\.[^.]+$/, ''),
+                        src: 'assets/items/' + file.name,
+                        imageData: url,
+                        x: 0, y: 0,
+                        width: img.naturalWidth,
+                        height: img.naturalHeight,
+                        naturalWidth: img.naturalWidth,
+                        naturalHeight: img.naturalHeight,
+                        visibleStates: scene.states.map((_, i) => i),
+                        placed: false,
+                        layer: 0,
+                        linkedItem: null,
+                        statePositions
+                    };
+                    if (!scene.sceneAssets) scene.sceneAssets = [];
+                    scene.sceneAssets.push(asset);
+                    Canvas.loadAssetImage(url).then(() => {
+                        renderSceneAssetList();
+                        Canvas.render();
+                    });
+                };
+                img.src = url;
+                assetFileInput.value = '';
+            });
+        }
     }
 
     return {
         createScene, removeScene, renameScene,
         getCurrentScene, getScene, getAllScenes,
         getCurrentState, getState, getStateCount,
+        getStateName, renameState,
         addState, removeState, setEditingState,
-        switchScene, renderSceneList, exportJSON, importJSON, initToolbar
+        addConnection, removeConnection, getConnections, getConnectionsForHotspot,
+        switchScene, renderSceneList, renderSceneAssetList,
+        exportJSON, importJSON, initToolbar
     };
 })();

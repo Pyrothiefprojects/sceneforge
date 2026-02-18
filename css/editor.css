@@ -129,22 +129,72 @@ body {
     transform: translateY(-1px);
 }
 
-/* ---- Toolbar Panel (dropdown area) ---- */
+/* ---- Floating Editor Panel ---- */
 
-.toolbar-panel {
-    position: absolute;
-    top: var(--toolbar-height);
-    left: 0;
-    right: 0;
+.editor-float-panel {
+    position: fixed;
+    top: 60px;
+    left: 12px;
+    width: 280px;
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
     background: var(--bg-panel);
-    border-bottom: 1px solid var(--border-fire);
-    padding: 12px 16px;
-    z-index: 99;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-fire);
+    border-radius: 6px;
+    z-index: 101;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
 }
 
-.toolbar-panel.hidden {
+.editor-float-panel.hidden {
     display: none;
+}
+
+.editor-float-panel-right {
+    left: auto;
+    right: 12px;
+    width: 200px;
+}
+
+.float-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: var(--bg-warm);
+    border-bottom: 1px solid var(--border-fire);
+    border-radius: 6px 6px 0 0;
+    cursor: grab;
+    user-select: none;
+}
+
+.float-panel-header:active {
+    cursor: grabbing;
+}
+
+.float-panel-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-gold);
+}
+
+.float-panel-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.float-panel-close:hover {
+    color: var(--text-primary);
+}
+
+#float-panel-body {
+    padding: 10px 12px;
 }
 
 /* ---- Panel Section Content ---- */
@@ -155,21 +205,16 @@ body {
 
 .panel-section.visible {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.panel-section.visible[data-panel="scene"],
-.panel-section.visible[data-panel="gamestate"] {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
 }
 
 .scene-panel-top {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 /* ---- Scene List ---- */
@@ -218,6 +263,13 @@ body {
     height: 100%;
     object-fit: cover;
 }
+.ideogram-thumb-pick {
+    background: #ffffff !important;
+}
+.ideogram-thumb-pick img {
+    background: #ffffff;
+    object-fit: contain !important;
+}
 
 .scene-thumb-empty {
     font-size: 11px;
@@ -250,6 +302,18 @@ body {
 .scene-card-meta {
     font-size: 10px;
     color: var(--text-secondary);
+}
+
+/* Hide delete buttons unless Allow Delete is checked */
+.scene-card-delete,
+.scene-state-btn.scene-state-remove {
+    display: none !important;
+}
+.delete-enabled .scene-card-delete {
+    display: flex !important;
+}
+.delete-enabled .scene-state-btn.scene-state-remove {
+    display: flex !important;
 }
 
 .scene-card-delete {
@@ -626,7 +690,129 @@ body {
 }
 
 .viewport.fullscreen {
-    top: var(--toolbar-height) !important;
+    top: 0 !important;
+}
+
+/* ---- Play Mode Floating Overlay Controls ---- */
+
+.play-overlay-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    z-index: 50;
+}
+
+.play-overlay-controls.hidden {
+    display: none;
+}
+
+.play-overlay-btn {
+    width: 36px;
+    height: 36px;
+    background: rgba(10, 10, 10, 0.4);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    color: rgba(245, 245, 245, 0.7);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.play-overlay-btn:hover {
+    background: rgba(10, 10, 10, 0.7);
+    border-color: rgba(255, 165, 0, 0.4);
+    color: var(--accent-gold);
+    box-shadow: 0 0 10px rgba(255, 107, 53, 0.2);
+}
+
+/* ---- Radial Inventory Wheel (play mode) ---- */
+
+.radial-wheel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 350;
+}
+
+.radial-wheel.hidden {
+    display: none;
+}
+
+.radial-wheel-items {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.radial-wheel-item {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    background: rgba(10, 10, 10, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 165, 0, 0.25);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    transform: translate(-50%, -50%);
+}
+
+.radial-wheel-item:hover {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 14px rgba(255, 107, 53, 0.4);
+    background: rgba(30, 22, 18, 0.95);
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+.radial-wheel-item.selected {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 16px rgba(255, 107, 53, 0.4);
+    background: rgba(255, 107, 53, 0.15);
+}
+
+.radial-wheel-item img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.radial-wheel-item-name {
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+}
+
+.radial-wheel-empty {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 10, 10, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 20px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    white-space: nowrap;
 }
 
 /* ---- Inventory Overlay (play mode) ---- */
@@ -784,7 +970,8 @@ body {
 
 .gamestate-columns {
     display: flex;
-    gap: 16px;
+    flex-direction: column;
+    gap: 12px;
     max-height: 50vh;
     overflow-y: auto;
 }
@@ -793,14 +980,13 @@ body {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    min-width: 160px;
-    border-right: 1px solid #332820;
-    padding-right: 16px;
+    border-bottom: 1px solid #332820;
+    padding-bottom: 12px;
 }
 
 .gamestate-col:last-child {
-    border-right: none;
-    padding-right: 0;
+    border-bottom: none;
+    padding-bottom: 0;
 }
 
 .gamestate-col-wide {
@@ -1083,6 +1269,11 @@ body {
     to { opacity: 1; }
 }
 
+@keyframes puzzleFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
 @keyframes puzzleExpand {
     from {
         transform: scale(0.4);
@@ -1092,6 +1283,25 @@ body {
         transform: scale(1);
         opacity: 1;
     }
+}
+
+@keyframes puzzleShrink {
+    from {
+        transform: scale(1);
+        opacity: 1;
+    }
+    to {
+        transform: scale(0.4);
+        opacity: 0;
+    }
+}
+
+.puzzle-overlay-backdrop.closing {
+    animation: puzzleFadeOut 0.3s ease-in forwards;
+}
+
+.puzzle-overlay-panel.closing {
+    animation: puzzleShrink 0.3s ease-in forwards;
 }
 
 /* ---- Puzzle Cards (editor) ---- */
@@ -1755,6 +1965,11 @@ body {
     border-color: var(--accent-gold);
 }
 
+.asset-lock-icon {
+    font-size: 10px;
+    margin-left: 2px;
+}
+
 .scene-state-remove {
     color: var(--accent-rust);
 }
@@ -1772,6 +1987,169 @@ body {
 .overview-puzzle-tags {
     font-size: 10px;
     color: var(--accent-gold);
+}
+
+/* ========== Blueprint Editor ========== */
+
+/* Blueprint Canvas */
+#blueprint-canvas {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-deep);
+}
+
+/* Blueprint Toolset */
+.blueprint-tools-body {
+    padding: 12px;
+}
+
+.blueprint-tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.blueprint-tool {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-fire);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.blueprint-tool:hover {
+    border-color: var(--accent-orange);
+    background: var(--bg-warm);
+}
+
+.blueprint-tool.active {
+    border-color: var(--accent-gold);
+    background: var(--bg-warm);
+    box-shadow: 0 0 8px var(--glow-orange);
+}
+
+.tool-icon {
+    font-size: 20px;
+}
+
+.tool-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+/* Ideogram Sub-tool Row */
+.ideogram-subtool-row {
+    display: flex;
+    gap: 6px;
+    padding: 6px 0;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.ideogram-subtool {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-fire);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+.ideogram-subtool:hover {
+    border-color: var(--accent-orange);
+    background: var(--bg-warm);
+}
+
+.ideogram-subtool.active {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 8px var(--glow-orange);
+}
+
+/* Blueprint Mode Toggle */
+.gamestate-mode-toggle {
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+/* Blueprint List */
+.blueprint-list {
+    padding: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.blueprint-category {
+    margin-bottom: 12px;
+}
+
+.blueprint-category-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    margin-bottom: 4px;
+    padding: 4px 8px;
+    background: var(--bg-input);
+    border-left: 3px solid var(--border-fire);
+}
+
+.blueprint-category-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.blueprint-list-item {
+    padding: 6px 12px;
+    background: var(--bg-warm);
+    border: 1px solid var(--border-fire);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.blueprint-list-item:hover {
+    border-color: var(--accent-orange);
+    background: var(--bg-panel);
+    box-shadow: 0 0 4px rgba(255, 107, 53, 0.3);
+}
+
+.blueprint-item-label {
+    font-size: 12px;
+    color: var(--text-primary);
+}
+
+.blueprint-room-header {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.blueprint-room-header:hover {
+    background: var(--bg-warm);
+    border-left-color: var(--accent-orange);
+}
+
+.blueprint-list-subitem {
+    padding-left: 20px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.blueprint-item-type {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: capitalize;
+    min-width: 70px;
 }
 
 /* ---- State Change Transition Frames UI ---- */
@@ -1858,6 +2236,134 @@ body {
     display: block;
 }
 
+/* ---- Overlay Toggle ---- */
+
+.overlay-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.overlay-master-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--accent-gold);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.overlay-master-label input {
+    accent-color: var(--accent-orange);
+}
+
+.overlay-options {
+    display: flex;
+    gap: 12px;
+}
+
+.overlay-options.hidden {
+    display: none;
+}
+
+.overlay-options label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.overlay-options label input {
+    accent-color: var(--accent-orange);
+}
+
+/* ---- State Name Input ---- */
+
+.scene-state-name-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #332820;
+    color: var(--text-primary);
+    font-size: 10px;
+    font-family: inherit;
+    outline: none;
+    width: 72px;
+    padding: 1px 2px;
+}
+
+.scene-state-name-input:focus {
+    border-color: var(--accent-orange);
+}
+
+.scene-state-name-input::placeholder {
+    color: #665040;
+}
+
+/* ---- Pick Mode Cursor ---- */
+
+.pick-mode-cursor {
+    cursor: crosshair !important;
+}
+
+/* ---- Scene Asset Cards ---- */
+
+.scene-asset-card {
+    border-color: #00897b;
+}
+
+.scene-asset-card:hover {
+    border-color: #00e5ff;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+}
+
+.scene-asset-card.active {
+    border-color: #00e5ff;
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+}
+
+.scene-asset-states {
+    display: flex;
+    gap: 4px;
+    margin-top: 3px;
+    flex-wrap: wrap;
+}
+
+.scene-asset-state-check {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.scene-asset-state-check input {
+    accent-color: #00e5ff;
+    width: 12px;
+    height: 12px;
+}
+
+.scene-asset-pos-nav {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(0, 229, 255, 0.15);
+}
+
+/* ---- Scene Asset Popover ---- */
+
+.scene-asset-popover {
+    border-color: #00897b;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 229, 255, 0.3);
+}
+
+.scene-asset-popover .popover-title {
+    color: #00e5ff;
+}
+
 /* ---- Utility ---- */
 
 .hidden {
@@ -1931,3 +2437,240 @@ body {
     color: var(--text-secondary);
     letter-spacing: 0.1em;
 }
+
+/* ========== Ideogram Editor ========== */
+
+.ideogram-ruin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.ideogram-ruin-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    background: var(--bg-input);
+    border: 1px solid #332820;
+    border-radius: 4px;
+}
+
+.ideogram-ruin-item img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.ideogram-ruin-item-name {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ideogram-ruin-remove {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+.ideogram-ruin-remove:hover {
+    color: #ff4444;
+}
+
+.ideogram-ruin-item {
+    cursor: pointer;
+}
+
+.ideogram-ruin-item.isomark-selected {
+    border-color: var(--accent-orange);
+    background: rgba(255, 107, 53, 0.12);
+}
+
+/* Rotation Dial */
+.ideogram-rotation-dial {
+    z-index: 200;
+    pointer-events: none;
+}
+
+.ideogram-dial-btn {
+    width: 36px;
+    height: 36px;
+    background: rgba(10, 10, 10, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 165, 0, 0.25);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    pointer-events: auto;
+}
+
+.ideogram-dial-btn:hover {
+    border-color: var(--accent-gold);
+    color: var(--text-primary);
+    box-shadow: 0 0 10px rgba(255, 107, 53, 0.4);
+}
+
+.ideogram-dial-btn.active {
+    border-color: var(--accent-gold);
+    background: rgba(255, 107, 53, 0.15);
+    color: var(--accent-gold);
+}
+
+.ideogram-mirror-btn {
+    font-size: 16px;
+}
+
+.ideogram-delete-btn {
+    border-color: #661111;
+    color: #ff4444;
+}
+
+.ideogram-delete-btn:hover {
+    background: rgba(255, 68, 68, 0.15);
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.3);
+}
+
+.ideogram-color-popover {
+    z-index: 200;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-rust);
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 180px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    pointer-events: auto;
+}
+
+.ideogram-color-modes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ideogram-color-modes label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.ideogram-color-modes label:hover {
+    background: rgba(255, 107, 53, 0.1);
+}
+
+.ideogram-color-modes input[type="radio"] {
+    accent-color: var(--accent-orange);
+}
+
+.ideogram-text-input {
+    z-index: 200;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-rust);
+    border-radius: 6px;
+    padding: 6px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    pointer-events: auto;
+}
+
+.ideogram-cut-menu {
+    z-index: 210;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-rust);
+    border-radius: 6px;
+    padding: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    pointer-events: auto;
+    display: flex;
+    gap: 4px;
+}
+
+.ideogram-cut-menu-btn {
+    background: var(--bg-darker);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s ease;
+}
+
+.ideogram-cut-menu-btn:hover {
+    background: var(--accent-rust);
+    color: #fff;
+}
+
+/* ---- Ideogram Zoom Scrollbars ---- */
+.ideogram-scrollbar {
+    position: absolute;
+    pointer-events: auto;
+    z-index: 150;
+    display: none;
+}
+
+.ideogram-scrollbar-h {
+    left: 0;
+    right: 14px;
+    bottom: 0;
+    height: 14px;
+    background: rgba(10, 10, 10, 0.6);
+    border-top: 1px solid #332820;
+}
+
+.ideogram-scrollbar-v {
+    top: 0;
+    right: 0;
+    bottom: 14px;
+    width: 14px;
+    background: rgba(10, 10, 10, 0.6);
+    border-left: 1px solid #332820;
+}
+
+.ideogram-scrollbar-thumb {
+    position: absolute;
+    border-radius: 4px;
+    background: #44382e;
+    transition: background 0.15s ease;
+    cursor: grab;
+}
+
+.ideogram-scrollbar-thumb:hover {
+    background: var(--accent-rust);
+}
+
+.ideogram-scrollbar-thumb:active {
+    background: var(--accent-orange);
+    cursor: grabbing;
+}
+
+.ideogram-scrollbar-h .ideogram-scrollbar-thumb {
+    top: 2px;
+    bottom: 2px;
+    min-width: 30px;
+}
+
+.ideogram-scrollbar-v .ideogram-scrollbar-thumb {
+    left: 2px;
+    right: 2px;
+    min-height: 30px;
+}
+

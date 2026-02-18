@@ -9,6 +9,10 @@ const HotspotEditor = (() => {
     let placingLoopTarget = null;
     let loopGhostEl = null;
 
+    // Connect mode
+    let connecting = false;
+    let connectSelection = new Set();
+
     function getHotspots() {
         const scene = SceneManager.getCurrentScene();
         if (!scene || !scene.states) return [];
@@ -177,14 +181,92 @@ const HotspotEditor = (() => {
         }
     }
 
+    // -- Connect Mode --
+
+    function startConnecting() {
+        stopDrawing();
+        closePopover();
+        connecting = true;
+        connectSelection = new Set();
+        // Enable overlay so all states' hotspots are visible
+        Canvas.setOverlayMode(true, { hotspots: true, assets: false });
+        Canvas.render();
+    }
+
+    function stopConnecting() {
+        connecting = false;
+        connectSelection = new Set();
+        Canvas.setOverlayMode(false, { hotspots: false, assets: false });
+        Canvas.render();
+    }
+
+    function isConnecting() {
+        return connecting;
+    }
+
+    function getConnectSelection() {
+        return connectSelection;
+    }
+
+    function confirmConnection() {
+        const scene = SceneManager.getCurrentScene();
+        if (!scene) return;
+        if (connectSelection.size < 2) return;
+        SceneManager.addConnection(scene.id, Array.from(connectSelection));
+        stopConnecting();
+    }
+
+    function getAllHotspotsAllStates() {
+        const scene = SceneManager.getCurrentScene();
+        if (!scene || !scene.states) return [];
+        const result = [];
+        for (let si = 0; si < scene.states.length; si++) {
+            const state = scene.states[si];
+            if (!state.hotspots) continue;
+            for (const hs of state.hotspots) {
+                result.push({ hotspot: hs, stateIndex: si });
+            }
+        }
+        return result;
+    }
+
+    function hitTestAllStates(imageX, imageY) {
+        const all = getAllHotspotsAllStates();
+        for (let i = all.length - 1; i >= 0; i--) {
+            if (pointInPolygon(imageX, imageY, all[i].hotspot.points)) {
+                return all[i];
+            }
+        }
+        return null;
+    }
+
     // -- Rendering --
 
     function renderHotspots(ctx, scale, offsetX, offsetY) {
-        const hotspots = getHotspots();
+        const STATE_COLORS = ['#ff6b35','#4fc3f7','#66bb6a','#ab47bc','#ef5350','#ffee58'];
 
-        for (const hs of hotspots) {
-            drawPolygon(ctx, hs.points, scale, offsetX, offsetY,
-                hs === selectedHotspot);
+        if (connecting) {
+            // Connect mode: draw all states' hotspots with per-state colors
+            const scene = SceneManager.getCurrentScene();
+            if (scene && scene.states) {
+                for (let si = 0; si < scene.states.length; si++) {
+                    const color = STATE_COLORS[si % STATE_COLORS.length];
+                    const state = scene.states[si];
+                    if (!state.hotspots) continue;
+                    for (const hs of state.hotspots) {
+                        const isSelected = connectSelection.has(hs.id);
+                        drawPolygonColored(ctx, hs.points, scale, offsetX, offsetY,
+                            isSelected ? '#4fc3f7' : color, isSelected, hs.name);
+                    }
+                }
+            }
+        } else {
+            // Normal mode: draw current state hotspots
+            const hotspots = getHotspots();
+            for (const hs of hotspots) {
+                drawPolygon(ctx, hs.points, scale, offsetX, offsetY,
+                    hs === selectedHotspot);
+            }
         }
 
         // Draw in-progress polygon
@@ -232,6 +314,50 @@ const HotspotEditor = (() => {
         }
     }
 
+    function drawPolygonColored(ctx, points, scale, ox, oy, color, highlight, label) {
+        if (points.length === 0) return;
+        ctx.beginPath();
+        ctx.moveTo(points[0][0] * scale + ox, points[0][1] * scale + oy);
+        for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i][0] * scale + ox, points[i][1] * scale + oy);
+        }
+        ctx.closePath();
+
+        ctx.fillStyle = color;
+        ctx.globalAlpha = highlight ? 0.3 : 0.12;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = highlight ? 2.5 : 1.5;
+        ctx.stroke();
+
+        // Points
+        if (highlight) {
+            for (const p of points) {
+                ctx.beginPath();
+                ctx.arc(p[0] * scale + ox, p[1] * scale + oy, 4, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = '#0a0a0a';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        // Label
+        if (label) {
+            let cx = 0, cy = 0;
+            for (const p of points) { cx += p[0]; cy += p[1]; }
+            cx /= points.length; cy /= points.length;
+            ctx.fillStyle = color;
+            ctx.font = '10px sans-serif';
+            ctx.globalAlpha = 0.8;
+            ctx.fillText(label, cx * scale + ox - 10, cy * scale + oy + 3);
+            ctx.globalAlpha = 1;
+        }
+    }
+
     // -- Popover --
 
     function showPopover(hotspot) {
@@ -264,6 +390,13 @@ const HotspotEditor = (() => {
             ${ActionConfig.renderStateChangeToggle(hotspot, 'pop', sceneStates)}
             ${ActionConfig.renderLoopToggle(hotspot, 'pop')}
             ${ActionConfig.renderSoundToggle(hotspot, 'pop')}
+            ${ActionConfig.renderAssetChangeToggle(hotspot, 'pop')}
+            <div class="popover-field">
+                <label><input type="checkbox" id="pop-clear-after" ${hotspot.clearAfterClick ? 'checked' : ''}> Clear after click</label>
+                <label><input type="checkbox" id="pop-clear-group" ${hotspot.clearGroup ? 'checked' : ''}> Clear group</label>
+            </div>
+            ${ActionConfig.renderMoveAssetToggle(hotspot, 'pop')}
+            <button id="pop-delete-hotspot" class="panel-btn danger" style="width:100%; margin-top:8px">Delete</button>
         `;
 
         document.getElementById('hotspot-overlay').appendChild(popoverEl);
@@ -281,6 +414,23 @@ const HotspotEditor = (() => {
         ActionConfig.bindStateChangeToggle(popoverEl, hotspot, 'pop');
         ActionConfig.bindLoopToggle(popoverEl, hotspot, 'pop');
         ActionConfig.bindSoundToggle(popoverEl, hotspot, 'pop');
+        ActionConfig.bindAssetChangeToggle(popoverEl, hotspot, 'pop');
+
+        const clearCb = popoverEl.querySelector('#pop-clear-after');
+        if (clearCb) {
+            clearCb.addEventListener('change', () => { hotspot.clearAfterClick = clearCb.checked; });
+        }
+        const clearGroupCb = popoverEl.querySelector('#pop-clear-group');
+        if (clearGroupCb) {
+            clearGroupCb.addEventListener('change', () => { hotspot.clearGroup = clearGroupCb.checked; });
+        }
+
+        ActionConfig.bindMoveAssetToggle(popoverEl, hotspot, 'pop');
+
+        const deleteBtn = popoverEl.querySelector('#pop-delete-hotspot');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => deleteSelected());
+        }
 
         // Loop placement button
         const loopPlaceBtn = popoverEl.querySelector('#pop-loop-place');
@@ -335,6 +485,13 @@ const HotspotEditor = (() => {
         if (el) el.textContent = text;
     }
 
+    function updateConnectStatus() {
+        const statusEl = document.getElementById('hotspot-connect-status');
+        if (statusEl) statusEl.textContent = connectSelection.size + ' hotspot' + (connectSelection.size !== 1 ? 's' : '') + ' selected';
+        const confirmBtn = document.getElementById('hotspot-connect-confirm');
+        if (confirmBtn) confirmBtn.disabled = connectSelection.size < 2;
+    }
+
     // -- Input handling --
 
     function handleCanvasClick(e) {
@@ -344,6 +501,22 @@ const HotspotEditor = (() => {
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
         const img = Canvas.screenToImage(sx, sy);
+
+        // Connect mode: toggle hotspot selection
+        if (connecting) {
+            const hit = hitTestAllStates(img.x, img.y);
+            if (hit) {
+                const id = hit.hotspot.id;
+                if (connectSelection.has(id)) {
+                    connectSelection.delete(id);
+                } else {
+                    connectSelection.add(id);
+                }
+                Canvas.render();
+                updateConnectStatus();
+            }
+            return;
+        }
 
         // Loop placement mode
         if (placingLoopTarget) {
@@ -431,15 +604,64 @@ const HotspotEditor = (() => {
     function initToolbar() {
         const newBtn = document.getElementById('hotspot-new');
         const undoBtn = document.getElementById('hotspot-undo');
-        const deleteBtn = document.getElementById('hotspot-delete');
 
         newBtn.addEventListener('click', startDrawing);
         undoBtn.addEventListener('click', undoPoint);
-        deleteBtn.addEventListener('click', deleteSelected);
+
+        // Connect tool
+        const connectBtn = document.getElementById('hotspot-connect');
+        const connectStatus = document.getElementById('hotspot-connect-status');
+        const connectConfirm = document.getElementById('hotspot-connect-confirm');
+        const connectCancel = document.getElementById('hotspot-connect-cancel');
+
+        if (connectBtn) {
+            connectBtn.addEventListener('click', () => {
+                if (connecting) {
+                    stopConnecting();
+                    connectBtn.classList.remove('active');
+                    connectStatus.style.display = 'none';
+                    connectConfirm.style.display = 'none';
+                    connectCancel.style.display = 'none';
+                } else {
+                    startConnecting();
+                    connectBtn.classList.add('active');
+                    connectStatus.style.display = '';
+                    connectConfirm.style.display = '';
+                    connectCancel.style.display = '';
+                    updateConnectStatus();
+                }
+            });
+        }
+
+        if (connectConfirm) {
+            connectConfirm.addEventListener('click', () => {
+                confirmConnection();
+                connectBtn.classList.remove('active');
+                connectStatus.style.display = 'none';
+                connectConfirm.style.display = 'none';
+                connectCancel.style.display = 'none';
+                updateStatus('Connection created.');
+            });
+        }
+
+        if (connectCancel) {
+            connectCancel.addEventListener('click', () => {
+                stopConnecting();
+                connectBtn.classList.remove('active');
+                connectStatus.style.display = 'none';
+                connectConfirm.style.display = 'none';
+                connectCancel.style.display = 'none';
+            });
+        }
     }
 
     function handleContextMenu(e) {
         e.preventDefault();
+        if (connecting) {
+            stopConnecting();
+            Canvas.render();
+            return;
+        }
         if (placingLoopTarget) {
             stopLoopPlacement();
             return;
@@ -464,8 +686,10 @@ const HotspotEditor = (() => {
     }
 
     return {
-        init, initToolbar, renderHotspots, hitTest, pointInPolygon,
+        init, initToolbar, renderHotspots, hitTest, hitTestAllStates, pointInPolygon,
         getSelected, isDrawing, stopDrawing, selectHotspot, closePopover,
-        startLoopPlacement, stopLoopPlacement, isLoopPlacing, getHotspots
+        startLoopPlacement, stopLoopPlacement, isLoopPlacing, getHotspots,
+        startConnecting, stopConnecting, isConnecting, getConnectSelection, confirmConnection,
+        getAllHotspotsAllStates
     };
 })();

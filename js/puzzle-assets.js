@@ -383,7 +383,8 @@ const PuzzleAssets = (() => {
                         frames: group.stateChange.frames || [],
                         frameDuration: group.stateChange.frameDuration || 100,
                         video: group.stateChange.video || null,
-                        reverse: group.stateChange.reverse || false
+                        reverse: group.stateChange.reverse || false,
+                        effect: group.stateChange.effect || null
                     });
                 }
                 continue;
@@ -416,7 +417,8 @@ const PuzzleAssets = (() => {
                     frames: asset.stateChange.frames || [],
                     frameDuration: asset.stateChange.frameDuration || 100,
                     video: asset.stateChange.video || null,
-                    reverse: asset.stateChange.reverse || false
+                    reverse: asset.stateChange.reverse || false,
+                    effect: asset.stateChange.effect || null
                 });
             }
         }
@@ -480,6 +482,15 @@ const PuzzleAssets = (() => {
                 }
                 break;
 
+            case 'solve_puzzle':
+                if (activePuzzle) {
+                    const solved = attemptSolve(activePuzzle);
+                    if (solved && action.text) {
+                        PlayMode.showDialogue(action.text);
+                    }
+                }
+                break;
+
             case 'puzzle_state':
                 if (action.stateIndex != null && activePuzzle) {
                     const bgWrap = activeContainer ? activeContainer.parentElement : null;
@@ -497,6 +508,16 @@ const PuzzleAssets = (() => {
                             target: 'img',
                             imgEl: imgEl
                         }).then(onDone);
+                    } else if (action.effect === 'fade' && imgEl) {
+                        imgEl.style.transition = 'opacity 250ms';
+                        imgEl.style.opacity = '0';
+                        setTimeout(() => {
+                            onDone();
+                            requestAnimationFrame(() => {
+                                imgEl.style.opacity = '1';
+                                setTimeout(() => { imgEl.style.transition = ''; }, 300);
+                            });
+                        }, 250);
                     } else {
                         onDone();
                     }

@@ -12,6 +12,7 @@ const ActionConfig = (() => {
                     <option value="pickup" ${type === 'pickup' ? 'selected' : ''}>Pick Up Item</option>
                     <option value="accepts_item" ${type === 'accepts_item' ? 'selected' : ''}>Accepts Item</option>
                     <option value="puzzle" ${type === 'puzzle' ? 'selected' : ''}>Trigger Puzzle</option>
+                    <option value="solve_puzzle" ${type === 'solve_puzzle' ? 'selected' : ''}>Solve Puzzle</option>
                 </select>
             </div>
             <div id="${idPrefix}-action-config"></div>`;
@@ -95,6 +96,13 @@ const ActionConfig = (() => {
                         </select>
                     </div>`;
                 break;
+            case 'solve_puzzle':
+                html = `
+                    <div class="popover-field">
+                        <label>Text</label>
+                        <input class="panel-input" id="${idPrefix}-solve-text" value="${target.action.text || ''}" placeholder="Success message (optional)">
+                    </div>`;
+                break;
         }
 
         container.innerHTML = html;
@@ -128,6 +136,9 @@ const ActionConfig = (() => {
             target.action.puzzleId = puzzleId.value;
             if (onUpdate) onUpdate();
         });
+
+        const solveText = container.querySelector(`#${idPrefix}-solve-text`);
+        if (solveText) solveText.addEventListener('input', () => { target.action.text = solveText.value; });
     }
 
     function renderStateChangeToggle(target, idPrefix, states) {
@@ -136,6 +147,7 @@ const ActionConfig = (() => {
         const frameCount = sc && sc.frames ? sc.frames.length : 0;
         const frameDuration = sc && sc.frameDuration ? sc.frameDuration : 100;
         const hasVideo = sc && sc.video;
+        const effect = sc ? (sc.effect || '') : '';
         return `
             <div class="popover-field state-change-toggle">
                 <label>
@@ -143,10 +155,17 @@ const ActionConfig = (() => {
                     State Change
                 </label>
                 <select class="panel-select" id="${idPrefix}-state-idx" ${sc ? '' : 'disabled'}>
-                    ${states.map((_, i) => `<option value="${i}" ${sc && sc.stateIndex === i ? 'selected' : ''}>State ${i + 1}</option>`).join('')}
+                    ${states.map((s, i) => `<option value="${i}" ${sc && sc.stateIndex === i ? 'selected' : ''}>${SceneManager.getStateName(s, i)}</option>`).join('')}
                 </select>
             </div>
             <div class="popover-field state-change-frames ${sc ? '' : 'hidden'}" id="${idPrefix}-frames-section">
+                <div class="state-change-frames-row">
+                    <label>Effect</label>
+                    <select class="panel-select" id="${idPrefix}-state-effect" style="width:auto">
+                        <option value="" ${effect === '' ? 'selected' : ''}>None</option>
+                        <option value="fade" ${effect === 'fade' ? 'selected' : ''}>Fade</option>
+                    </select>
+                </div>
                 <label>Transition</label>
                 <div class="state-change-frames-row">
                     <button class="panel-btn" id="${idPrefix}-load-frames">${frameCount > 0 ? frameCount + ' frames' : 'Load Frames'}</button>
@@ -182,9 +201,11 @@ const ActionConfig = (() => {
 
         if (!cb || !idx) return;
 
+        const effectSel = popoverEl.querySelector(`#${idPrefix}-state-effect`);
+
         cb.addEventListener('change', () => {
             if (cb.checked) {
-                target.stateChange = { stateIndex: parseInt(idx.value) || 0, frames: [], frameDuration: 100, video: null };
+                target.stateChange = { stateIndex: parseInt(idx.value) || 0, frames: [], frameDuration: 100, video: null, effect: effectSel ? effectSel.value || null : null };
                 idx.disabled = false;
                 if (framesSection) framesSection.classList.remove('hidden');
             } else {
@@ -199,6 +220,14 @@ const ActionConfig = (() => {
                 target.stateChange.stateIndex = parseInt(idx.value) || 0;
             }
         });
+
+        if (effectSel) {
+            effectSel.addEventListener('change', () => {
+                if (target.stateChange) {
+                    target.stateChange.effect = effectSel.value || null;
+                }
+            });
+        }
 
         if (loadBtn && fileInput) {
             loadBtn.addEventListener('click', () => fileInput.click());
@@ -469,10 +498,116 @@ const ActionConfig = (() => {
         }
     }
 
+    function renderAssetChangeToggle(target, idPrefix) {
+        const ac = target.assetChange;
+        const mode = ac ? (ac.mode || 'hide') : 'hide';
+        const scenes = SceneManager.getAllScenes();
+        const allAssets = [];
+        for (const scene of scenes) {
+            for (const asset of (scene.sceneAssets || [])) {
+                allAssets.push({ id: asset.id, label: scene.name + ' / ' + asset.name });
+            }
+        }
+        return `
+            <div class="popover-field state-change-toggle">
+                <label>
+                    <input type="checkbox" id="${idPrefix}-asset-change" ${ac ? 'checked' : ''}>
+                    Asset Change
+                </label>
+                <select class="panel-select" id="${idPrefix}-asset-change-mode" ${ac ? '' : 'disabled'} style="width:auto">
+                    <option value="hide" ${mode === 'hide' ? 'selected' : ''}>Hide</option>
+                    <option value="show" ${mode === 'show' ? 'selected' : ''}>Show</option>
+                </select>
+                <select class="panel-select" id="${idPrefix}-asset-change-target" ${ac ? '' : 'disabled'}>
+                    <option value="">-- Select --</option>
+                    ${allAssets.map(a => `<option value="${a.id}" ${ac && ac.assetId === a.id ? 'selected' : ''}>${a.label}</option>`).join('')}
+                </select>
+            </div>`;
+    }
+
+    function bindAssetChangeToggle(popoverEl, target, idPrefix) {
+        const cb = popoverEl.querySelector(`#${idPrefix}-asset-change`);
+        const modeSel = popoverEl.querySelector(`#${idPrefix}-asset-change-mode`);
+        const sel = popoverEl.querySelector(`#${idPrefix}-asset-change-target`);
+        if (!cb || !sel) return;
+
+        cb.addEventListener('change', () => {
+            if (cb.checked) {
+                target.assetChange = { assetId: sel.value || '', mode: modeSel ? modeSel.value : 'hide' };
+                sel.disabled = false;
+                if (modeSel) modeSel.disabled = false;
+            } else {
+                target.assetChange = null;
+                sel.disabled = true;
+                if (modeSel) modeSel.disabled = true;
+            }
+        });
+
+        sel.addEventListener('change', () => {
+            if (target.assetChange) {
+                target.assetChange.assetId = sel.value;
+            }
+        });
+
+        if (modeSel) {
+            modeSel.addEventListener('change', () => {
+                if (target.assetChange) {
+                    target.assetChange.mode = modeSel.value;
+                }
+            });
+        }
+    }
+
+    function renderMoveAssetToggle(target, idPrefix) {
+        const ma = target.moveAsset;
+        const scenes = SceneManager.getAllScenes();
+        const allAssets = [];
+        for (const scene of scenes) {
+            for (const asset of (scene.sceneAssets || [])) {
+                allAssets.push({ id: asset.id, label: scene.name + ' / ' + asset.name });
+            }
+        }
+        return `
+            <div class="popover-field state-change-toggle">
+                <label>
+                    <input type="checkbox" id="${idPrefix}-move-asset" ${ma ? 'checked' : ''}>
+                    Move Asset
+                </label>
+                <select class="panel-select" id="${idPrefix}-move-asset-target" ${ma ? '' : 'disabled'}>
+                    <option value="">-- Select --</option>
+                    ${allAssets.map(a => `<option value="${a.id}" ${ma && ma.assetId === a.id ? 'selected' : ''}>${a.label}</option>`).join('')}
+                </select>
+            </div>`;
+    }
+
+    function bindMoveAssetToggle(popoverEl, target, idPrefix) {
+        const cb = popoverEl.querySelector(`#${idPrefix}-move-asset`);
+        const sel = popoverEl.querySelector(`#${idPrefix}-move-asset-target`);
+        if (!cb || !sel) return;
+
+        cb.addEventListener('change', () => {
+            if (cb.checked) {
+                target.moveAsset = { assetId: sel.value || '' };
+                sel.disabled = false;
+            } else {
+                target.moveAsset = null;
+                sel.disabled = true;
+            }
+        });
+
+        sel.addEventListener('change', () => {
+            if (target.moveAsset) {
+                target.moveAsset.assetId = sel.value;
+            }
+        });
+    }
+
     return {
         renderDropdown, bindDropdown, renderConfig,
         renderStateChangeToggle, bindStateChangeToggle,
         renderLoopToggle, bindLoopToggle,
-        renderSoundToggle, bindSoundToggle
+        renderSoundToggle, bindSoundToggle,
+        renderAssetChangeToggle, bindAssetChangeToggle,
+        renderMoveAssetToggle, bindMoveAssetToggle
     };
 })();

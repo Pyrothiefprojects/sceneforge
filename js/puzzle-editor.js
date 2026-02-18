@@ -174,7 +174,7 @@ const PuzzleEditor = (() => {
                         </select>
                         ${sceneStateCount > 1 ? `
                         <select class="item-uses-select puzzle-reward-state-idx" data-id="${puzzle.id}">
-                            ${Array.from({length: sceneStateCount}, (_, i) => `<option value="${i}" ${rss && rss.stateIndex === i ? 'selected' : ''}>State ${i + 1}</option>`).join('')}
+                            ${Array.from({length: sceneStateCount}, (_, i) => `<option value="${i}" ${rss && rss.stateIndex === i ? 'selected' : ''}>${selectedScene.states[i] && selectedScene.states[i].background ? selectedScene.states[i].background : 'State ' + (i + 1)}</option>`).join('')}
                         </select>` : ''}
                     </div>
                     <input class="panel-input puzzle-completion-text" data-id="${puzzle.id}" value="${puzzle.completionText || ''}" placeholder="Completion text..." style="font-size:10px; margin-top:2px;">
