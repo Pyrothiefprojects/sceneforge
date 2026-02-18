@@ -1,9 +1,9 @@
-# SceneForge
+# Parallax
 
-> **SceneForge is source-available, not open source. See [LICENSE](LICENSE) for terms.**
+> **Parallax is source-available, not open source. See [LICENSE](LICENSE) for terms.**
 
 ## What It Is
-SceneForge is a browser-based point-and-click puzzle game editor and engine built entirely in vanilla JavaScript. It includes a visual editor for designing scenes, hotspots, inventory items, interactive puzzles, and game progression — and a built-in play mode for testing the whole thing as a player would experience it.
+Parallax is a browser-based point-and-click puzzle game editor and engine built entirely in vanilla JavaScript. It includes a visual editor for designing scenes, hotspots, inventory items, interactive puzzles, and game progression — and a built-in play mode for testing the whole thing as a player would experience it.
 
 ## How It Works
 - Single HTML page — no frameworks, no bundler, no server required
@@ -40,7 +40,7 @@ SceneForge is a browser-based point-and-click puzzle game editor and engine buil
 
 ## Project Structure
 ```
-/sceneforge
+/parallax
 ├── index.html                  # Single page app shell
 ├── css/
 │   └── editor.css              # All styling (dark theme, panels, overlays, animations)
@@ -354,7 +354,7 @@ No build step, no imports — scripts load in dependency order via `<script>` ta
 This workflow ensures that state backgrounds match the transition endpoints exactly, so there's no visual pop when the animation starts or ends.
 
 ## Save / Load / Export
-- **Save** — downloads a `sceneforge-project.json` file containing all scenes, items, puzzles, progression steps, images, animation frames, and videos (embedded as data URLs for portability)
+- **Save** — downloads a `parallax-project.json` file containing all scenes, items, puzzles, progression steps, images, animation frames, and videos (embedded as data URLs for portability)
 - **Load** — upload a project JSON to restore the full editor state
 - **Export** — generates `project-data.js` with path-based asset references instead of data URLs, ready for deployment alongside the asset files in `assets/`
 - Includes backwards-compatible migration for older project formats
@@ -370,8 +370,8 @@ The exported game is fully static — no server-side code required.
 On load, the preloader scans all asset URLs from `window.SCENEFORGE_PROJECT`, preloads every image, video, and audio file in parallel with a progress bar, then auto-starts play mode.
 
 ### Live
-- **Site:** [pyrothief.ca/sceneforge](https://pyrothief.ca/sceneforge/)
-- **Repo:** [Pyrothiefprojects/sceneforge](https://github.com/Pyrothiefprojects/sceneforge)
+- **Site:** [pyrothief.ca/parallax](https://pyrothief.ca/parallax/)
+- **Repo:** [Pyrothiefprojects/parallax](https://github.com/Pyrothiefprojects/parallax)
 - Hosted via GitHub Pages
 
 ## Development
