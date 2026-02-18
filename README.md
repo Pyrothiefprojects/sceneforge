@@ -367,7 +367,7 @@ The exported game is fully static — no server-side code required.
 3. Place all asset files in the `assets/` folder structure matching the paths in the export
 4. Host the entire folder on any static host (GitHub Pages, Netlify, etc.)
 
-On load, the preloader scans all asset URLs from `window.SCENEFORGE_PROJECT`, preloads every image, video, and audio file in parallel with a progress bar, then auto-starts play mode.
+On load, the preloader scans all asset URLs from `window.PARALLAX_PROJECT`, preloads every image, video, and audio file in parallel with a progress bar, then auto-starts play mode.
 
 ### Live
 - **Site:** [pyrothief.ca/parallax](https://pyrothief.ca/parallax/)

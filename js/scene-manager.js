@@ -458,7 +458,7 @@ const SceneManager = (() => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'sceneforge-project.json';
+        a.download = 'parallax-project.json';
         a.click();
         URL.revokeObjectURL(url);
     }

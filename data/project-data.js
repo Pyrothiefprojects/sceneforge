@@ -1,4 +1,4 @@
-window.SCENEFORGE_PROJECT = {
+window.PARALLAX_PROJECT = {
   "scenes": [
     {
       "id": "cryooperations_1771308338532",

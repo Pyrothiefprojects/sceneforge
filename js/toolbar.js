@@ -553,7 +553,7 @@ const Toolbar = (() => {
                 ideogramData: IdeogramEditor.getIdeogramData()
             };
             const clean = stripDataUrls(data);
-            const js = 'window.SCENEFORGE_PROJECT = ' + JSON.stringify(clean, null, 2) + ';\n';
+            const js = 'window.PARALLAX_PROJECT =' + JSON.stringify(clean, null, 2) + ';\n';
             const blob = new Blob([js], { type: 'application/javascript' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
