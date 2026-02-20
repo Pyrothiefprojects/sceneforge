@@ -503,7 +503,8 @@ const IdeogramEditor = (() => {
         ctx.scale(viewport.zoom, viewport.zoom);
 
         renderGrid();
-        codices.forEach(c => renderCodex(c));
+        codices.filter(c => !c.isSpindial).forEach(c => renderCodex(c));
+        codices.filter(c => c.isSpindial).forEach(c => renderCodex(c));
         isopresses.forEach(p => renderIsopress(p));
         isolathes.forEach(l => renderIsolathe(l));
         placedRuins.forEach(ruin => renderPlacedRuin(ruin));
@@ -877,7 +878,10 @@ const IdeogramEditor = (() => {
             visualDragRot = (currentRot - (c.rotation || 0)) * Math.PI / 180;
         }
         ctx.rotate((c.rotation || 0) * Math.PI / 180 + visualDragRot);
+        const prevAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = c.imageOpacity != null ? c.imageOpacity : 1.0;
         ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        ctx.globalAlpha = prevAlpha;
 
         // Dashed ellipse overlay — editor only
         if (!canvasLocked) {
@@ -1608,6 +1612,10 @@ const IdeogramEditor = (() => {
                 <label style="font-size:11px; color:var(--text-secondary);">Size: <span id="codex-cfg-size-val">${Math.round(w)}</span></label>
                 <input type="range" id="codex-cfg-size" min="50" max="2000" step="10" value="${Math.round(w)}" style="width:100%;">
             </div>
+            <div style="margin-bottom:6px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Image Opacity: <span id="codex-cfg-opacity-val">${Math.round((codex.imageOpacity != null ? codex.imageOpacity : 1.0) * 100)}%</span></label>
+                <input type="range" id="codex-cfg-opacity" min="0" max="1" step="0.05" value="${codex.imageOpacity != null ? codex.imageOpacity : 1.0}" style="width:100%;">
+            </div>
             <div style="margin-bottom:6px; display:flex; gap:8px;">
                 <div>
                     <label style="font-size:11px; color:var(--text-secondary);">Ruin Count</label>
@@ -1761,6 +1769,14 @@ const IdeogramEditor = (() => {
             codex.width = v;
             codex.height = v;
             sizeVal.textContent = v;
+            render();
+        });
+
+        const opacitySlider = codexConfigEl.querySelector('#codex-cfg-opacity');
+        const opacityVal = codexConfigEl.querySelector('#codex-cfg-opacity-val');
+        opacitySlider.addEventListener('input', () => {
+            codex.imageOpacity = parseFloat(opacitySlider.value);
+            opacityVal.textContent = Math.round(codex.imageOpacity * 100) + '%';
             render();
         });
 
