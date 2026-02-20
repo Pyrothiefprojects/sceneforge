@@ -66,6 +66,10 @@ const IdeogramEditor = (() => {
     let isopressConfigEl = null;      // DOM element for isopress config popover
     let isolatheConfigEl = null;      // DOM element for isolathe config popover
     let canvasLocked = false;  // dev mode: lock canvas panning
+    let puzzleMode = false;
+    let puzzleEditMode = false;
+    let savedEditorState = null;   // saved editor state when in puzzle mode
+    let puzzleRef = null;  // reference to puzzle object for state persistence
 
     // ========== CONSTANTS ==========
     const GRID_SIZE = 40;
@@ -92,7 +96,7 @@ const IdeogramEditor = (() => {
     }
     function _onWheel(e) {
         e.preventDefault();
-        if (canvasLocked) return;
+        if (canvasLocked || puzzleMode) return;
         viewport.offsetX -= e.deltaX;
         viewport.offsetY -= e.deltaY;
         viewport.offsetX = clampOffset('h');
@@ -350,6 +354,30 @@ const IdeogramEditor = (() => {
             if (s.x + s.width > maxX) maxX = s.x + s.width;
             if (s.y + s.height > maxY) maxY = s.y + s.height;
         });
+        codices.forEach(c => {
+            const w = c.width || DEFAULT_RUIN_SIZE;
+            const h = c.height || DEFAULT_RUIN_SIZE;
+            if (c.x < minX) minX = c.x;
+            if (c.y < minY) minY = c.y;
+            if (c.x + w > maxX) maxX = c.x + w;
+            if (c.y + h > maxY) maxY = c.y + h;
+        });
+        isopresses.forEach(p => {
+            const w = p.width || DEFAULT_RUIN_SIZE;
+            const h = p.height || DEFAULT_RUIN_SIZE;
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x + w > maxX) maxX = p.x + w;
+            if (p.y + h > maxY) maxY = p.y + h;
+        });
+        isolathes.forEach(l => {
+            const w = l.width || DEFAULT_RUIN_SIZE;
+            const h = l.height || DEFAULT_RUIN_SIZE;
+            if (l.x < minX) minX = l.x;
+            if (l.y < minY) minY = l.y;
+            if (l.x + w > maxX) maxX = l.x + w;
+            if (l.y + h > maxY) maxY = l.y + h;
+        });
         return {
             minX: minX - SCROLL_PADDING,
             minY: minY - SCROLL_PADDING,
@@ -494,26 +522,32 @@ const IdeogramEditor = (() => {
         if (!ctx) return;
 
         // Clear canvas in screen space
-        ctx.fillStyle = GRID_BG;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (puzzleMode) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = GRID_BG;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
 
         // Apply zoom transform — all subsequent drawing is in world coordinates
         ctx.save();
         ctx.translate(viewport.offsetX, viewport.offsetY);
         ctx.scale(viewport.zoom, viewport.zoom);
 
-        renderGrid();
+        if (!puzzleMode) renderGrid();
         codices.filter(c => !c.isSpindial).forEach(c => renderCodex(c));
         codices.filter(c => c.isSpindial).forEach(c => renderCodex(c));
         isopresses.forEach(p => renderIsopress(p));
         isolathes.forEach(l => renderIsolathe(l));
-        placedRuins.forEach(ruin => renderPlacedRuin(ruin));
-        textElements.forEach(te => renderTextElement(te));
-        drawnShapes.forEach(shape => renderDrawnShape(shape));
-        renderShapePreview();
+        if (!puzzleMode) {
+            placedRuins.forEach(ruin => renderPlacedRuin(ruin));
+            textElements.forEach(te => renderTextElement(te));
+            drawnShapes.forEach(shape => renderDrawnShape(shape));
+            renderShapePreview();
+        }
 
         // Polygon cut preview
-        if (cutPolygonPoints.length > 0 || cutPolygon) {
+        if (!puzzleMode && (cutPolygonPoints.length > 0 || cutPolygon)) {
             ctx.save();
             ctx.strokeStyle = '#ff6b35';
             ctx.lineWidth = 2 / viewport.zoom;
@@ -549,7 +583,7 @@ const IdeogramEditor = (() => {
         }
 
         // Cut selection preview (actively drawing)
-        if (cutSelection) {
+        if (!puzzleMode && cutSelection) {
             const sx = Math.min(cutSelection.startX, cutSelection.currentX);
             const sy = Math.min(cutSelection.startY, cutSelection.currentY);
             const sw = Math.abs(cutSelection.currentX - cutSelection.startX);
@@ -565,7 +599,7 @@ const IdeogramEditor = (() => {
         }
 
         // Finalized cut box (awaiting move/cut action)
-        if (cutBox) {
+        if (!puzzleMode && cutBox) {
             ctx.save();
             ctx.strokeStyle = '#ff6b35';
             ctx.lineWidth = 2 / viewport.zoom;
@@ -577,7 +611,7 @@ const IdeogramEditor = (() => {
         }
 
         // Text area drawing preview
-        if (textDrawing) {
+        if (!puzzleMode && textDrawing) {
             const tx = Math.min(textDrawing.startX, textDrawing.currentX);
             const ty = Math.min(textDrawing.startY, textDrawing.currentY);
             const tw = Math.abs(textDrawing.currentX - textDrawing.startX);
@@ -595,15 +629,16 @@ const IdeogramEditor = (() => {
         ctx.restore(); // end zoom transform
 
         // Screen-space overlays (drawn after zoom restore)
-
-        // Resize handles (constant size regardless of zoom) — shown on any selected element
-        const selElem = getSelectedElement();
-        if (selElem) {
-            drawResizeHandles(selElem);
+        if (!puzzleMode) {
+            // Resize handles (constant size regardless of zoom) — shown on any selected element
+            const selElem = getSelectedElement();
+            if (selElem) {
+                drawResizeHandles(selElem);
+            }
         }
 
         // Cut stamp following cursor (screen space)
-        if (cutStamp && cutStampPos) {
+        if (!puzzleMode && cutStamp && cutStampPos) {
             ctx.globalAlpha = 0.6;
             ctx.drawImage(cutStamp.canvas,
                 cutStampPos.x * viewport.zoom + viewport.offsetX,
@@ -848,6 +883,7 @@ const IdeogramEditor = (() => {
         isolathes.forEach(l => loadIsolatheImage(l));
     }
 
+    // TODO: ruin slots are switching/swapping positions — investigate later
     function renderCodex(c) {
         const img = codexImageCache[c.id];
         if (!img) return;
@@ -1308,6 +1344,7 @@ const IdeogramEditor = (() => {
             </div>
         `;
         document.body.appendChild(panel);
+        if (puzzleMode) panel.style.zIndex = '400';
         isopressConfigEl = panel;
 
         const nameInput = panel.querySelector('#isopress-cfg-name');
@@ -1395,6 +1432,7 @@ const IdeogramEditor = (() => {
             </div>
         `;
         document.body.appendChild(panel);
+        if (puzzleMode) panel.style.zIndex = '400';
         isolatheConfigEl = panel;
 
         const nameInput = panel.querySelector('#isolathe-cfg-name');
@@ -1716,7 +1754,9 @@ const IdeogramEditor = (() => {
             </div>
         `;
 
-        document.getElementById('hotspot-overlay').appendChild(codexConfigEl);
+        const configParent = puzzleMode ? document.body : document.getElementById('hotspot-overlay');
+        if (puzzleMode) codexConfigEl.style.zIndex = '400';
+        configParent.appendChild(codexConfigEl);
         codexConfigEl.addEventListener('mousedown', (e) => e.stopPropagation());
 
         // Bind events — name
@@ -3253,6 +3293,22 @@ const IdeogramEditor = (() => {
         const mx = (e.clientX - rect.left - viewport.offsetX) / viewport.zoom;
         const my = (e.clientY - rect.top - viewport.offsetY) / viewport.zoom;
 
+        // Puzzle mode pass-through: if click misses all pieces, forward to element below
+        if (puzzleMode) {
+            const hitCo = hitTestCodex(mx, my);
+            const hitIp = hitTestIsopress(mx, my);
+            const hitIl = hitTestIsolathe(mx, my);
+            if (!hitCo && !hitIp && !hitIl) {
+                canvas.style.pointerEvents = 'none';
+                const below = document.elementFromPoint(e.clientX, e.clientY);
+                canvas.style.pointerEvents = 'auto';
+                if (below && below !== canvas) {
+                    below.dispatchEvent(new MouseEvent('mousedown', e));
+                }
+                return;
+            }
+        }
+
         // Dev lock: everything frozen except drag-to-rotate on any codex
         if (canvasLocked) {
             const hitCy = hitTestCodex(mx, my);
@@ -4697,12 +4753,172 @@ const IdeogramEditor = (() => {
         return currentIdeogramId;
     }
 
+    // ========== PUZZLE MODE ==========
+    function getIdeogramBounds(ig) {
+        const elems = [
+            ...(ig.codices || []).map(c => {
+                const s = c.width || DEFAULT_RUIN_SIZE;
+                const slotSize = c.slotSize || 200;
+                const proximity = c.ruinProximity || 0;
+                const scale = c.ruinScale || 1;
+                const overflow = c.isSpindial ? 0 : (slotSize * scale + 8 + proximity);
+                return { x: c.x - overflow, y: c.y - overflow, w: s + overflow * 2, h: s + overflow * 2 };
+            }),
+            ...(ig.isopresses || []).map(p => ({ x: p.x, y: p.y, w: p.width || DEFAULT_RUIN_SIZE, h: p.height || DEFAULT_RUIN_SIZE })),
+            ...(ig.isolathes || []).map(l => ({ x: l.x, y: l.y, w: l.width || DEFAULT_RUIN_SIZE, h: l.height || DEFAULT_RUIN_SIZE }))
+        ];
+        if (elems.length === 0) return { minX: 0, minY: 0, totalW: 200, totalH: 200 };
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const e of elems) {
+            if (e.x < minX) minX = e.x;
+            if (e.y < minY) minY = e.y;
+            if (e.x + e.w > maxX) maxX = e.x + e.w;
+            if (e.y + e.h > maxY) maxY = e.y + e.h;
+        }
+        return { minX, minY, totalW: maxX - minX, totalH: maxY - minY };
+    }
+
+    function activateForPuzzle(canvasEl, ideogramId, editMode, puzzle) {
+        // Save full editor state so we can restore it on deactivate
+        savedEditorState = {
+            canvas, ctx,
+            currentIdeogramId,
+            codices: codices.map(c => deepCopyCodex(c)),
+            isopresses: isopresses.map(p => ({ ...p })),
+            isolathes: isolathes.map(l => ({ ...l })),
+            placedRuins: placedRuins.map(p => ({ ...p })),
+            ruinLibrary,
+            viewport: { ...viewport },
+            activeTool,
+            canvasLocked,
+            selectedCodex, selectedIsopress, selectedIsolathe
+        };
+
+        puzzleMode = true;
+        puzzleEditMode = !!editMode;
+        puzzleRef = puzzle || null;
+        canvas = canvasEl;
+        ctx = canvasEl.getContext('2d');
+
+        // Size canvas from parent (bg-wrap sized by background image)
+        const parent = canvasEl.parentElement;
+        canvasEl.width = parent.clientWidth;
+        canvasEl.height = parent.clientHeight;
+        canvasEl.style.pointerEvents = 'auto';
+
+        const ig = ideograms.find(i => i.id === ideogramId);
+        const saved = puzzle && puzzle.ideogramState;
+
+        if (saved) {
+            // Restore saved puzzle state (positions/config from previous edit)
+            currentIdeogramId = ideogramId;
+            codices = (saved.codices || []).map(c => deepCopyCodex(c));
+            isopresses = (saved.isopresses || []).map(p => ({ ...p }));
+            isolathes = (saved.isolathes || []).map(l => ({ ...l }));
+            placedRuins = ig ? (ig.placedRuins || []).map(p => ({ ...p })) : [];
+            ruinLibrary = ig ? (ig.ruinLibrary || []) : [];
+        } else if (ig) {
+            // First time — load from ideogram
+            currentIdeogramId = ig.id;
+            codices = (ig.codices || []).map(c => deepCopyCodex(c));
+            isopresses = (ig.isopresses || []).map(p => ({ ...p }));
+            isolathes = (ig.isolathes || []).map(l => ({ ...l }));
+            placedRuins = (ig.placedRuins || []).map(p => ({ ...p }));
+            ruinLibrary = ig.ruinLibrary || [];
+        }
+
+        preloadAllCodexImages();
+        preloadAllSlotImages();
+        preloadAllIsopressImages();
+        preloadAllIsolatheImages();
+
+        // Puzzle mode: no viewport offset — coordinates are in canvas space
+        if (!saved && ig) {
+            // First time: shift ideogram coordinates so they're centered on the puzzle canvas
+            const bounds = getIdeogramBounds(ig);
+            const shiftX = -bounds.minX + (canvasEl.width - bounds.totalW) / 2;
+            const shiftY = -bounds.minY + (canvasEl.height - bounds.totalH) / 2;
+            codices.forEach(c => { c.x += shiftX; c.y += shiftY; });
+            isopresses.forEach(p => { p.x += shiftX; p.y += shiftY; });
+            isolathes.forEach(l => { l.x += shiftX; l.y += shiftY; });
+        }
+        viewport = { offsetX: 0, offsetY: 0, zoom: 1 };
+        activeTool = 'select';
+        canvasLocked = !editMode;
+        selectedCodex = null;
+        selectedIsopress = null;
+        selectedIsolathe = null;
+
+        canvas.addEventListener('mousedown', _onMouseDown);
+        canvas.addEventListener('mousemove', _onMouseMove);
+        canvas.addEventListener('mouseup', _onMouseUp);
+
+        render();
+    }
+
+    function deactivateForPuzzle() {
+        if (!puzzleMode) return;
+
+        // Save current positions/config to puzzle object
+        if (puzzleRef) {
+            puzzleRef.ideogramState = {
+                codices: codices.map(c => deepCopyCodex(c)),
+                isopresses: isopresses.map(p => ({ ...p })),
+                isolathes: isolathes.map(l => ({ ...l }))
+            };
+        }
+
+        if (canvas) {
+            canvas.removeEventListener('mousedown', _onMouseDown);
+            canvas.removeEventListener('mousemove', _onMouseMove);
+            canvas.removeEventListener('mouseup', _onMouseUp);
+            canvas.style.pointerEvents = 'none';
+        }
+
+        closeCodexConfig();
+        closeIsopressConfig();
+        closeIsolatheConfig();
+        selectedCodex = null;
+        selectedIsopress = null;
+        selectedIsolathe = null;
+        rotatingCodexDrag = null;
+        codexSnapAnim = null;
+
+        puzzleMode = false;
+        puzzleEditMode = false;
+        puzzleRef = null;
+
+        // Restore full editor state
+        if (savedEditorState) {
+            canvas = savedEditorState.canvas;
+            ctx = savedEditorState.ctx;
+            currentIdeogramId = savedEditorState.currentIdeogramId;
+            codices = savedEditorState.codices;
+            isopresses = savedEditorState.isopresses;
+            isolathes = savedEditorState.isolathes;
+            placedRuins = savedEditorState.placedRuins;
+            ruinLibrary = savedEditorState.ruinLibrary;
+            viewport = savedEditorState.viewport;
+            activeTool = savedEditorState.activeTool;
+            canvasLocked = savedEditorState.canvasLocked;
+            selectedCodex = savedEditorState.selectedCodex;
+            selectedIsopress = savedEditorState.selectedIsopress;
+            selectedIsolathe = savedEditorState.selectedIsolathe;
+            savedEditorState = null;
+            if (active) render();
+        } else {
+            canvas = null;
+            ctx = null;
+        }
+    }
+
     // ========== PUBLIC API ==========
     return {
         activate, deactivate, isActive,
         getIdeogramData, loadIdeogramData,
         getAllIdeograms, getCurrentIdeogramId,
         switchIdeogram, createIdeogram, deleteIdeogram,
-        refreshSidebarList
+        refreshSidebarList,
+        activateForPuzzle, deactivateForPuzzle, getIdeogramBounds
     };
 })();

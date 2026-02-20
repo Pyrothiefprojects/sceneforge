@@ -1,6 +1,61 @@
 window.PARALLAX_PROJECT ={
   "scenes": [
     {
+      "id": "loadingbay_1771308338532",
+      "name": "loadingbay",
+      "states": [
+        {
+          "background": "loadingbay.png",
+          "backgroundData": "assets/scenes/loadingbay.png",
+          "hotspots": [
+            {
+              "id": "hotspot_1771598906783",
+              "name": "",
+              "points": [
+                [
+                  388,
+                  481
+                ],
+                [
+                  387,
+                  573
+                ],
+                [
+                  345,
+                  592
+                ],
+                [
+                  342,
+                  488
+                ],
+                [
+                  294,
+                  482
+                ],
+                [
+                  289,
+                  346
+                ],
+                [
+                  332,
+                  345
+                ]
+              ],
+              "action": {
+                "type": "puzzle",
+                "puzzleId": "puzzle_1771598855578"
+              },
+              "requires": []
+            }
+          ]
+        }
+      ],
+      "editingStateIndex": 0,
+      "music": null,
+      "sceneAssets": [],
+      "hotspotConnections": []
+    },
+    {
       "id": "cryooperations_1771308338532",
       "name": "cryooperations",
       "states": [
@@ -31,7 +86,7 @@ window.PARALLAX_PROJECT ={
               ],
               "action": {
                 "type": "puzzle",
-                "puzzleId": "puzzle_1771315415317"
+                "puzzleId": "puzzle_1771594307749"
               },
               "requires": []
             }
@@ -50,21 +105,6 @@ window.PARALLAX_PROJECT ={
         {
           "background": "cryo.png",
           "backgroundData": "assets/scenes/cryo.png",
-          "hotspots": []
-        }
-      ],
-      "editingStateIndex": 0,
-      "music": null,
-      "sceneAssets": [],
-      "hotspotConnections": []
-    },
-    {
-      "id": "loadingbay_1771308338532",
-      "name": "loadingbay",
-      "states": [
-        {
-          "background": "loadingbay.png",
-          "backgroundData": "assets/scenes/loadingbay.png",
           "hotspots": []
         }
       ],
@@ -136,11 +176,11 @@ window.PARALLAX_PROJECT ={
       "completionText": ""
     },
     {
-      "id": "puzzle_1771315415317",
-      "name": "Map",
+      "id": "puzzle_1771594307749",
+      "name": "Ideogram",
       "states": [
         {
-          "backgroundImage": "assets/puzzles/diagramperfectcircle.png",
+          "backgroundImage": "assets/puzzles/ideogrampuzzle.png",
           "assets": [],
           "assetGroups": [],
           "hotspots": []
@@ -151,6 +191,162 @@ window.PARALLAX_PROJECT ={
       "rewardSceneState": null,
       "isClue": false,
       "completionText": ""
+    },
+    {
+      "id": "puzzle_1771598855578",
+      "name": "Isopress",
+      "states": [
+        {
+          "backgroundImage": "assets/puzzles/Isopress.png",
+          "assets": [],
+          "assetGroups": [],
+          "hotspots": []
+        }
+      ],
+      "editingStateIndex": 0,
+      "rewardItemId": "",
+      "rewardSceneState": null,
+      "isClue": false,
+      "completionText": "",
+      "ideogramId": "ideogram_1771503169529_zl52",
+      "ideogramState": {
+        "codices": [
+          {
+            "id": "codex_1771586581401_3ai2",
+            "image": "assets/puzzles/Codex_ring.png",
+            "x": 374.8333333333335,
+            "y": 114.5,
+            "width": 210,
+            "height": 210,
+            "rotation": 144,
+            "ruinCount": 5,
+            "slotSize": 200,
+            "name": "Codex ring",
+            "slots": [
+              {
+                "image": "assets/puzzles/ruinshield.png",
+                "name": "ruinshield",
+                "width": 440,
+                "height": 401,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false,
+                "pinPosition": false
+              },
+              {
+                "image": "assets/puzzles/ruinengine.png",
+                "name": "ruinengine",
+                "width": 283,
+                "height": 423,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false,
+                "pinPosition": false
+              },
+              {
+                "image": "assets/puzzles/ruinnavigation.png",
+                "name": "ruinnavigation",
+                "width": 445,
+                "height": 726,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false,
+                "pinPosition": false
+              },
+              {
+                "image": "assets/puzzles/ruincryo.png",
+                "name": "ruincryo",
+                "width": 621,
+                "height": 362,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false,
+                "pinPosition": false
+              },
+              {
+                "image": "assets/puzzles/ruinweapons.png",
+                "name": "ruinweapons",
+                "width": 409,
+                "height": 386,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false,
+                "pinPosition": false
+              }
+            ],
+            "solvedSlots": null,
+            "isSpindial": false,
+            "discOrientCoupling": false,
+            "linkedSpindial": false,
+            "mirrorCoupling": false,
+            "gateRotate": false,
+            "gateFlip": false,
+            "imageOpacity": 1,
+            "ruinScale": 0.15,
+            "ruinProximity": -25
+          },
+          {
+            "id": "codex_1771587348567_479c",
+            "image": "assets/puzzles/spindial.png",
+            "x": 408.7857142857142,
+            "y": 148.0714285714289,
+            "width": 140,
+            "height": 140,
+            "rotation": 0,
+            "ruinCount": 5,
+            "slotSize": 200,
+            "name": "Spindial",
+            "slots": [
+              {
+                "image": null,
+                "name": ""
+              },
+              {
+                "image": null,
+                "name": ""
+              },
+              {
+                "image": null,
+                "name": ""
+              },
+              {
+                "image": null,
+                "name": ""
+              },
+              {
+                "image": null,
+                "name": ""
+              }
+            ],
+            "solvedSlots": null,
+            "isSpindial": true,
+            "discOrientCoupling": false,
+            "linkedSpindial": false,
+            "mirrorCoupling": false,
+            "gateRotate": false,
+            "gateFlip": false,
+            "linkedCodexId": "codex_1771586581401_3ai2"
+          }
+        ],
+        "isopresses": [
+          {
+            "id": "isopress_1771587603806_r2dq",
+            "image": "assets/puzzles/Iso_plate.png",
+            "x": 671.2142857142858,
+            "y": 418.0714285714291,
+            "width": 120,
+            "height": 120,
+            "name": "Iso plate",
+            "linkedCodexId": "codex_1771586581401_3ai2"
+          }
+        ],
+        "isolathes": []
+      }
     }
   ],
   "gameState": [],
@@ -532,104 +728,16 @@ window.PARALLAX_PROJECT ={
     },
     "metadata": {
       "created": 1771308000000,
-      "modified": 1771587790460
+      "modified": 1771611266409
     }
   },
   "ideogramData": {
-    "ruinLibrary": [
-      {
-        "id": "ruin_1771487721981_ks4a",
-        "name": "Ruincryo",
-        "image": "assets/puzzles/ruincryo.png"
-      },
-      {
-        "id": "ruin_1771487721982_ubdm",
-        "name": "Ruinengine",
-        "image": "assets/puzzles/ruinengine.png"
-      },
-      {
-        "id": "ruin_1771487721982_xfl8",
-        "name": "Ruinnavigation",
-        "image": "assets/puzzles/ruinnavigation.png"
-      },
-      {
-        "id": "ruin_1771487721983_ipot",
-        "name": "Ruinshield",
-        "image": "assets/puzzles/ruinshield.png"
-      },
-      {
-        "id": "ruin_1771487721983_mq7f",
-        "name": "Ruinweapons",
-        "image": "assets/puzzles/ruinweapons.png"
-      },
-      {
-        "id": "ruin_1771572615384_cd2g",
-        "name": "ruinMark",
-        "image": "assets/puzzles/ruin_Mark.png"
-      },
-      {
-        "id": "ruin_1771586569325_vg66",
-        "name": "Codex ring",
-        "image": "assets/puzzles/Codex_ring.png"
-      },
-      {
-        "id": "ruin_1771587041651_4vhv",
-        "name": "Spindial",
-        "image": "assets/puzzles/spindial.png"
-      },
-      {
-        "id": "ruin_1771587123091_yin2",
-        "name": "Ideogram",
-        "image": "assets/puzzles/Ideogram.png"
-      },
-      {
-        "id": "ruin_1771587172000_lxlw",
-        "name": "Iso plate",
-        "image": "assets/puzzles/Iso_plate.png"
-      },
-      {
-        "id": "ruin_1771587199848_d2qt",
-        "name": "Blank Mark",
-        "image": "assets/puzzles/blank_Mark.png"
-      },
-      {
-        "id": "ruin_1771587207793_ytf8",
-        "name": "Mark",
-        "image": "assets/puzzles/ruin_Mark.png"
-      }
-    ],
+    "ruinLibrary": [],
     "ideograms": [
       {
         "id": "ideogram_1771503169529_zl52",
         "name": "Codex",
-        "placedRuins": [
-          {
-            "id": "placed_1771503280214_j2or",
-            "ruinId": "ruin_1771503273644_40o9",
-            "x": -424.33333333333337,
-            "y": -180.66666666666652,
-            "width": 960,
-            "height": 960,
-            "rotation": 0,
-            "mirrored": false,
-            "colorMode": "none",
-            "color": "#ff0000",
-            "opacity": 1
-          },
-          {
-            "id": "placed_1771587127891_zfo7",
-            "ruinId": "ruin_1771587123091_yin2",
-            "x": -892.9047619047619,
-            "y": -603.5238095238094,
-            "width": 960,
-            "height": 960,
-            "rotation": 0,
-            "mirrored": false,
-            "colorMode": "none",
-            "color": "#ff0000",
-            "opacity": 1
-          }
-        ],
+        "placedRuins": [],
         "clearRects": [],
         "textElements": [],
         "drawnShapes": [],
@@ -637,10 +745,10 @@ window.PARALLAX_PROJECT ={
           {
             "id": "codex_1771586581401_3ai2",
             "image": "assets/puzzles/Codex_ring.png",
-            "x": 1161.714285714286,
-            "y": 432.7619047619044,
-            "width": 910,
-            "height": 910,
+            "x": -1930.2857142857138,
+            "y": -1255.2380952380956,
+            "width": 402,
+            "height": 402,
             "rotation": 216,
             "ruinCount": 5,
             "slotSize": 200,
@@ -716,10 +824,10 @@ window.PARALLAX_PROJECT ={
           {
             "id": "codex_1771587348567_479c",
             "image": "assets/puzzles/spindial.png",
-            "x": 1295.666666666667,
-            "y": 559.3333333333333,
-            "width": 640,
-            "height": 640,
+            "x": -2300.333333333333,
+            "y": -1156.6666666666667,
+            "width": 140,
+            "height": 140,
             "rotation": 270,
             "ruinCount": 5,
             "slotSize": 200,
@@ -757,44 +865,24 @@ window.PARALLAX_PROJECT ={
           }
         ],
         "viewport": {
-          "offsetX": 382.51666666666665,
-          "offsetY": 281.2333333333333,
-          "zoom": 0.35
+          "offsetX": 2300.333333333333,
+          "offsetY": 1313.2380952380956,
+          "zoom": 1
         },
         "metadata": {
           "created": 1771503169529,
-          "modified": 1771587790461
+          "modified": 1771611266409
         },
         "thumbnail": "assets/puzzles/cryoideogram.png",
         "isopresses": [
           {
-            "id": "isopress_1771587545182_cctx",
-            "image": "assets/puzzles/blank_Mark.png",
-            "x": 147.09523809523824,
-            "y": 385.0476190476194,
-            "width": 722,
-            "height": 704,
-            "name": "Blank Mark",
-            "linkedCodexId": "codex_1771586581401_3ai2"
-          },
-          {
             "id": "isopress_1771587603806_r2dq",
             "image": "assets/puzzles/Iso_plate.png",
-            "x": 1207.0952380952385,
-            "y": -720.6666666666665,
-            "width": 800,
-            "height": 800,
+            "x": -1280.9047619047615,
+            "y": -1161.6666666666665,
+            "width": 212,
+            "height": 212,
             "name": "Iso plate",
-            "linkedCodexId": "codex_1771586581401_3ai2"
-          },
-          {
-            "id": "isopress_1771587665206_gvtn",
-            "image": "assets/puzzles/ruin_Mark.png",
-            "x": 152.8095238095242,
-            "y": -389.2380952380954,
-            "width": 722,
-            "height": 704,
-            "name": "ruinMark",
             "linkedCodexId": "codex_1771586581401_3ai2"
           }
         ],

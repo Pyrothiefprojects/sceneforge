@@ -215,6 +215,7 @@ const PlayMode = (() => {
             html += '<span style="color:var(--text-secondary); font-size:14px; padding:40px; display:block;">No puzzle background set.</span>';
         }
         html += '<div class="puzzle-asset-layer" id="puzzle-asset-layer"></div>';
+        html += '<canvas id="puzzle-ideogram-canvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></canvas>';
         html += '</div>';
 
         if (caption) {
@@ -241,6 +242,13 @@ const PlayMode = (() => {
                 PuzzleAssets.resetRuntime(puzzle);
             }
             PuzzleAssets.renderAssets(puzzle, assetLayer, puzzleOverlayMode === 'edit', stateIdx);
+
+            if (puzzle.ideogramId) {
+                const igCanvas = document.getElementById('puzzle-ideogram-canvas');
+                if (igCanvas) {
+                    IdeogramEditor.activateForPuzzle(igCanvas, puzzle.ideogramId, puzzleOverlayMode === 'edit', puzzle);
+                }
+            }
         }
 
         if (bgImg && !bgImg.complete) {
@@ -325,6 +333,13 @@ const PlayMode = (() => {
             </div>
             <span id="puzzle-edit-status" class="panel-label" style="color:var(--text-secondary); font-size:11px; word-break:break-word;"></span>
             <div class="puzzle-tools-divider"></div>
+            <span class="panel-label" style="font-size:11px;">Ideogram</span>
+            <select class="panel-select" id="puzzle-ideogram-select">
+                <option value="">— None —</option>
+                ${IdeogramEditor.getAllIdeograms().map(ig => `<option value="${ig.id}" ${puzzle.ideogramId === ig.id ? 'selected' : ''}>${ig.name || ig.id}</option>`).join('')}
+            </select>
+            <button class="panel-btn danger" id="puzzle-ideogram-clear" style="width:100%; ${puzzle.ideogramId ? '' : 'display:none;'}">Remove Ideogram</button>
+            <div class="puzzle-tools-divider"></div>
             <div id="puzzle-state-widget"></div>
             <input type="file" id="puzzle-state-file-input" accept="image/*" style="display:none;">
         `;
@@ -355,6 +370,34 @@ const PlayMode = (() => {
         const hotspotToolbar = tools.querySelector('#puzzle-hotspot-toolbar');
         const hotspotUndoBtn = tools.querySelector('#puzzle-hotspot-undo');
         const hotspotDeleteBtn = tools.querySelector('#puzzle-hotspot-delete');
+        const ideogramSelect = tools.querySelector('#puzzle-ideogram-select');
+        const ideogramClearBtn = tools.querySelector('#puzzle-ideogram-clear');
+
+        ideogramSelect.addEventListener('change', () => {
+            IdeogramEditor.deactivateForPuzzle();
+            puzzle.ideogramId = ideogramSelect.value || null;
+            delete puzzle.ideogramState;
+            if (puzzle.ideogramId) {
+                const igCanvas = document.getElementById('puzzle-ideogram-canvas');
+                if (igCanvas) {
+                    IdeogramEditor.activateForPuzzle(igCanvas, puzzle.ideogramId, true, puzzle);
+                }
+            }
+            ideogramClearBtn.style.display = puzzle.ideogramId ? '' : 'none';
+        });
+
+        ideogramClearBtn.addEventListener('click', () => {
+            IdeogramEditor.deactivateForPuzzle();
+            puzzle.ideogramId = null;
+            delete puzzle.ideogramState;
+            ideogramSelect.value = '';
+            ideogramClearBtn.style.display = 'none';
+            const igCanvas = document.getElementById('puzzle-ideogram-canvas');
+            if (igCanvas) {
+                const ctx = igCanvas.getContext('2d');
+                ctx.clearRect(0, 0, igCanvas.width, igCanvas.height);
+            }
+        });
 
         // SVG layer for puzzle hotspots
         const hotspotSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -630,6 +673,7 @@ const PlayMode = (() => {
     }
 
     function closePuzzleOverlay() {
+        IdeogramEditor.deactivateForPuzzle();
         AudioManager.stopSounds();
         LoopAnimator.stopPuzzle();
         TransitionPlayer.cancel();
