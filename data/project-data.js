@@ -1,4 +1,4 @@
-window.PARALLAX_PROJECT = {
+window.PARALLAX_PROJECT ={
   "scenes": [
     {
       "id": "cryooperations_1771308338532",
@@ -532,42 +532,240 @@ window.PARALLAX_PROJECT = {
     },
     "metadata": {
       "created": 1771308000000,
-      "modified": 1771412927336
+      "modified": 1771510708070
     }
   },
   "ideogramData": {
     "ruinLibrary": [
       {
-        "id": "ruin_1771390145259_3nq5",
-        "name": "Diagramperfectcircle",
-        "image": "assets/puzzles/diagramperfectcircle.png"
+        "id": "ruin_1771487721981_ks4a",
+        "name": "Ruincryo",
+        "image": "assets/puzzles/ruincryo.png"
       },
       {
-        "id": "ruin_1771390288998_5sea",
-        "name": "Cryo",
-        "image": "assets/puzzles/ruin_cryo.png"
+        "id": "ruin_1771487721982_ubdm",
+        "name": "Ruinengine",
+        "image": "assets/puzzles/ruinengine.png"
       },
       {
-        "id": "ruin_1771390288999_sxwv",
-        "name": "Navigation",
-        "image": "assets/puzzles/ruin_navigation.png"
+        "id": "ruin_1771487721982_xfl8",
+        "name": "Ruinnavigation",
+        "image": "assets/puzzles/ruinnavigation.png"
       },
       {
-        "id": "ruin_1771390289000_vn8u",
-        "name": "Shield",
-        "image": "assets/puzzles/ruin_shield.png"
+        "id": "ruin_1771487721983_ipot",
+        "name": "Ruinshield",
+        "image": "assets/puzzles/ruinshield.png"
       },
       {
-        "id": "ruin_1771390289000_x53l",
-        "name": "Weapons",
-        "image": "assets/puzzles/ruin_weapons.png"
+        "id": "ruin_1771487721983_mq7f",
+        "name": "Ruinweapons",
+        "image": "assets/puzzles/ruinweapons.png"
       },
       {
-        "id": "ruin_1771392128860_kjkp",
-        "name": "Engine",
-        "image": "assets/puzzles/ruin_engine.png"
+        "id": "ruin_1771493848782_v7fv",
+        "name": "Map puzzle",
+        "image": "assets/puzzles/Map_puzzle.png"
+      },
+      {
+        "id": "ruin_1771496858096_ou8f",
+        "name": "Map puzzle spindial",
+        "image": "assets/puzzles/Map_puzzle_spindial.png"
+      },
+      {
+        "id": "ruin_1771496858098_qklu",
+        "name": "Map puzzle",
+        "image": "assets/puzzles/Map_puzzle.png"
+      },
+      {
+        "id": "ruin_1771503273644_40o9",
+        "name": "Cryoideogram",
+        "image": "assets/puzzles/cryoideogram.png"
       }
     ],
-    "ideograms": []
+    "ideograms": [
+      {
+        "id": "ideogram_1771503169529_zl52",
+        "name": "Cypher",
+        "placedRuins": [
+          {
+            "id": "placed_1771503280214_j2or",
+            "ruinId": "ruin_1771503273644_40o9",
+            "x": -424.33333333333337,
+            "y": -180.66666666666652,
+            "width": 960,
+            "height": 960,
+            "rotation": 0,
+            "mirrored": false,
+            "colorMode": "none",
+            "color": "#ff0000",
+            "opacity": 1
+          }
+        ],
+        "clearRects": [],
+        "textElements": [],
+        "drawnShapes": [],
+        "cyphers": [
+          {
+            "id": "cypher_1771503216753_x3oj",
+            "image": "assets/puzzles/Map_puzzle.png",
+            "x": 1042.818181818182,
+            "y": 245.9999999999999,
+            "width": 920,
+            "height": 880,
+            "rotation": 0,
+            "ruinCount": 5,
+            "slotSize": 200,
+            "name": "Map puzzle",
+            "slots": [
+              {
+                "image": "assets/puzzles/ruincryo.png",
+                "name": "ruincryo",
+                "width": 621,
+                "height": 362,
+                "rotation": 0
+              },
+              {
+                "image": "assets/puzzles/ruinweapons.png",
+                "name": "ruinweapons",
+                "width": 409,
+                "height": 386,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false
+              },
+              {
+                "image": "assets/puzzles/ruinshield.png",
+                "name": "ruinshield",
+                "width": 440,
+                "height": 401,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false
+              },
+              {
+                "image": "assets/puzzles/ruinengine.png",
+                "name": "ruinengine",
+                "width": 283,
+                "height": 423,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false
+              },
+              {
+                "image": "assets/puzzles/ruinnavigation.png",
+                "name": "ruinnavigation",
+                "width": 445,
+                "height": 726,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false
+              }
+            ],
+            "solvedSlots": [
+              {
+                "image": "assets/puzzles/ruincryo.png",
+                "name": "ruincryo",
+                "width": 621,
+                "height": 362,
+                "rotation": 0
+              },
+              {
+                "image": "assets/puzzles/ruinweapons.png",
+                "name": "ruinweapons",
+                "width": 409,
+                "height": 386,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false
+              },
+              {
+                "image": "assets/puzzles/ruinshield.png",
+                "name": "ruinshield",
+                "width": 440,
+                "height": 401,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false
+              },
+              {
+                "image": "assets/puzzles/ruinengine.png",
+                "name": "ruinengine",
+                "width": 283,
+                "height": 423,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false
+              },
+              {
+                "image": "assets/puzzles/ruinnavigation.png",
+                "name": "ruinnavigation",
+                "width": 445,
+                "height": 726,
+                "rotation": 0,
+                "flipped": false,
+                "lockPosition": false,
+                "lockOrientation": false
+              }
+            ],
+            "isSpindial": false
+          },
+          {
+            "id": "cypher_1771503218365_8j5h",
+            "image": "assets/puzzles/Map_puzzle_spindial.png",
+            "x": 1299.6666666666665,
+            "y": 466.66666666666697,
+            "width": 404.5242070116861,
+            "height": 394,
+            "rotation": 0,
+            "ruinCount": 5,
+            "slotSize": 200,
+            "name": "Map puzzle spindial",
+            "slots": [
+              {
+                "image": null,
+                "name": ""
+              },
+              {
+                "image": null,
+                "name": ""
+              },
+              {
+                "image": null,
+                "name": ""
+              },
+              {
+                "image": null,
+                "name": ""
+              },
+              {
+                "image": null,
+                "name": ""
+              }
+            ],
+            "solvedSlots": null,
+            "isSpindial": true,
+            "linkedCypherId": "cypher_1771503216753_x3oj"
+          }
+        ],
+        "viewport": {
+          "offsetX": 224.16666666666669,
+          "offsetY": 100,
+          "zoom": 0.5
+        },
+        "metadata": {
+          "created": 1771503169529,
+          "modified": 1771510708070
+        },
+        "thumbnail": "assets/puzzles/cryoideogram.png"
+      }
+    ]
   }
 };

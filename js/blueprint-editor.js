@@ -515,6 +515,7 @@ const BlueprintEditor = (() => {
 
     // ========== MOUSE INTERACTION ==========
     function handleMouseDown(e) {
+        if (!active) return;
         const rect = blueprintCanvas.getBoundingClientRect();
         const startX = e.clientX - rect.left - viewport.offsetX;
         const startY = e.clientY - rect.top - viewport.offsetY;
@@ -586,6 +587,7 @@ const BlueprintEditor = (() => {
     }
 
     function handleMouseMove(e) {
+        if (!active) return;
         // Handle item dragging
         if (draggingItem) {
             const rect = blueprintCanvas.getBoundingClientRect();
@@ -616,6 +618,7 @@ const BlueprintEditor = (() => {
     }
 
     function handleMouseUp(e) {
+        if (!active) return;
         // Handle item drag end
         if (draggingItem) {
             draggingItem = null;

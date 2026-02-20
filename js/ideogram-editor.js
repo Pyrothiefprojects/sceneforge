@@ -6,7 +6,14 @@ const IdeogramEditor = (() => {
     let ruinLibrary = [];
     let placedRuins = [];
     let selectedRuin = null;
-    let activeTool = 'select'; // 'select' | 'addRuin' | 'color' | 'cut' | 'text' | 'createIdeogram'
+    let activeTool = 'select'; // 'select' | 'addRuin' | 'color' | 'cut' | 'text' | 'createIdeogram' | 'cypher'
+    let cyphers = [];              // [{ id, image, x, y, width, height, rotation, ruinCount, name }]
+    let selectedCypher = null;
+    let draggingCypher = null;
+    let cypherImageCache = {};     // id → loaded Image object
+    let slotImageCache = {};       // 'cypherId_slotIndex' → loaded Image object
+    let cypherConfigEl = null;     // DOM element for cypher config popover
+    let rotatingCypherDrag = null;  // { cypher, lastAngle, accumulated }
     let viewport = { offsetX: 0, offsetY: 0, zoom: 1.0 };
     let draggingRuin = null;
     let rotationDialEl = null;
@@ -47,6 +54,7 @@ const IdeogramEditor = (() => {
     let scrollbarHEl = null;  // horizontal scrollbar track
     let scrollbarVEl = null;  // vertical scrollbar track
     let scrollDragging = null; // { axis: 'h'|'v', startMouse, startOffset }
+    let canvasLocked = false;  // dev mode: lock canvas panning
 
     // ========== CONSTANTS ==========
     const GRID_SIZE = 40;
@@ -73,6 +81,7 @@ const IdeogramEditor = (() => {
     }
     function _onWheel(e) {
         e.preventDefault();
+        if (canvasLocked) return;
         viewport.offsetX -= e.deltaX;
         viewport.offsetY -= e.deltaY;
         viewport.offsetX = clampOffset('h');
@@ -151,12 +160,16 @@ const IdeogramEditor = (() => {
         closeTextInput();
         closeCutMenu();
         closeRuinRadialWheel();
+        closeCypherConfig();
         selectedRuin = null;
         selectedText = null;
         selectedShape = null;
+        selectedCypher = null;
         draggingRuin = null;
         draggingText = null;
         draggingShape = null;
+        draggingCypher = null;
+        rotatingCypherDrag = null;
         shapeDrawing = null;
         resizing = null;
         selectMouseDown = null;
@@ -473,6 +486,7 @@ const IdeogramEditor = (() => {
         ctx.scale(viewport.zoom, viewport.zoom);
 
         renderGrid();
+        cyphers.forEach(c => renderCypher(c));
         placedRuins.forEach(ruin => renderPlacedRuin(ruin));
         textElements.forEach(te => renderTextElement(te));
         drawnShapes.forEach(shape => renderDrawnShape(shape));
@@ -649,6 +663,7 @@ const IdeogramEditor = (() => {
 
     // ========== RESIZE HANDLES ==========
     function getSelectedElement() {
+        if (selectedCypher) return selectedCypher;
         if (selectedRuin) return selectedRuin;
         if (selectedText) return selectedText;
         if (selectedShape) return selectedShape;
@@ -755,6 +770,714 @@ const IdeogramEditor = (() => {
         ruinLibrary.forEach(r => loadRuinImage(r.id));
     }
 
+    // ========== CYPHER FUNCTIONS ==========
+    function loadCypherImage(cypher) {
+        if (!cypher || cypherImageCache[cypher.id]) return;
+        loadImageClean(cypher.image, (img) => {
+            cypherImageCache[cypher.id] = img;
+            render();
+        });
+    }
+
+    function preloadAllCypherImages() {
+        cyphers.forEach(c => loadCypherImage(c));
+    }
+
+    function loadSlotImage(cypher, slotIndex) {
+        const slot = cypher.slots && cypher.slots[slotIndex];
+        if (!slot || !slot.image) return;
+        const key = cypher.id + '_' + slotIndex;
+        if (slotImageCache[key]) return;
+        loadImageClean(slot.image, (img) => {
+            slotImageCache[key] = img;
+            render();
+        });
+    }
+
+    function preloadAllSlotImages() {
+        cyphers.forEach(c => {
+            if (!c.slots) return;
+            c.slots.forEach((s, i) => { if (s.image) loadSlotImage(c, i); });
+        });
+    }
+
+    function renderCypher(c) {
+        const img = cypherImageCache[c.id];
+        if (!img) return;
+        if (img.complete === false) return;
+
+        const w = c.width || DEFAULT_RUIN_SIZE;
+        const h = c.height || DEFAULT_RUIN_SIZE;
+        const cx = c.x + w / 2;
+        const cy = c.y + h / 2;
+        const isSelected = c === selectedCypher;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Visual rotation during drag: spindial uses spindialAngle, disc uses totalAngle (continuous)
+        const isDragTarget = rotatingCypherDrag && rotatingCypherDrag.cypher === c;
+        let visualDragRot = 0;
+        if (isDragTarget) {
+            if (c.isSpindial) {
+                visualDragRot = rotatingCypherDrag.spindialAngle || 0;
+            } else {
+                visualDragRot = rotatingCypherDrag.totalAngle || 0;
+            }
+        }
+        ctx.rotate((c.rotation || 0) * Math.PI / 180 + visualDragRot);
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+
+        // Dashed ellipse overlay to distinguish from ruins (matches bounding box)
+        const spindialColor = c.isSpindial ? 'rgba(255,107,157,0.5)' : 'rgba(255,165,0,0.5)';
+        ctx.strokeStyle = isSelected ? '#00e5ff' : spindialColor;
+        ctx.lineWidth = (isSelected ? 3 : 2) / viewport.zoom;
+        ctx.setLineDash(isSelected ? [] : [6 / viewport.zoom, 4 / viewport.zoom]);
+        const rx = w / 2 - 2;
+        const ry = h / 2 - 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Ruin slot boxes — only for non-spindial cyphers
+        if (!c.isSpindial) {
+            const ruinCount = c.ruinCount || 5;
+            const slotSize = c.slotSize || 200;
+            const erx = w / 2;
+            const ery = h / 2;
+            const slotOffset = slotSize / 2 + 4;
+            ctx.strokeStyle = isSelected ? '#00e5ff' : 'rgba(255,165,0,0.7)';
+            ctx.lineWidth = 1.5 / viewport.zoom;
+            const slots = c.slots || [];
+            const isDragging = rotatingCypherDrag && rotatingCypherDrag.cypher === c;
+            const dragOffset = isDragging ? rotatingCypherDrag.accumulated : 0;
+            // Smooth orientation offset: fractional progress toward next step
+            const stepSize = (2 * Math.PI) / ruinCount;
+            const fracAngle = isDragging ? (rotatingCypherDrag.accumulated || 0) : 0;
+            const orientDragOffset = (isDragging && c.discOrientCoupling && !c.isSpindial)
+                ? (fracAngle / stepSize) * (Math.PI / 2) : 0;
+            for (let i = 0; i < ruinCount; i++) {
+                const slot = slots[i];
+                const isPinned = slot && slot.pinPosition;
+                const angle = (i * 2 * Math.PI / ruinCount) - Math.PI / 2 + (isPinned ? 0 : dragOffset);
+                const sx = Math.cos(angle) * (erx + slotOffset);
+                const sy = Math.sin(angle) * (ery + slotOffset);
+                const hasImage = slot && slot.image;
+                const scale = c.ruinScale || 1;
+                const baseW = (hasImage && slot.width) ? slot.width : slotSize;
+                const baseH = (hasImage && slot.height) ? slot.height : slotSize;
+                const boxW = baseW * scale;
+                const boxH = baseH * scale;
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.rotate(angle + Math.PI / 2);
+                if (hasImage) {
+                    const key = c.id + '_' + i;
+                    const slotImg = slotImageCache[key];
+                    if (slotImg && slotImg.complete !== false) {
+                        const slotLocked = slot.lockPosition || slot.lockOrientation || slot.pinPosition;
+                        const smoothOrient = slotLocked ? 0 : orientDragOffset;
+                        const slotRot = (slot.rotation || 0) * Math.PI / 180 + smoothOrient;
+                        const isFlipped = slot.flipped || false;
+                        if (slotRot || isFlipped) {
+                            ctx.save();
+                            if (isFlipped) ctx.scale(-1, 1);
+                            if (slotRot) ctx.rotate(slotRot);
+                            ctx.drawImage(slotImg, -boxW / 2, -boxH / 2, boxW, boxH);
+                            ctx.restore();
+                        } else {
+                            ctx.drawImage(slotImg, -boxW / 2, -boxH / 2, boxW, boxH);
+                        }
+                    }
+                }
+                ctx.strokeStyle = hasImage ? '#4CAF50' : (isSelected ? '#00e5ff' : 'rgba(255,165,0,0.7)');
+                ctx.lineWidth = 1.5 / viewport.zoom;
+                ctx.strokeRect(-boxW / 2, -boxH / 2, boxW, boxH);
+                ctx.restore();
+            }
+        }
+
+        // Selection border
+        if (isSelected) {
+            ctx.strokeStyle = '#00e5ff';
+            ctx.lineWidth = 3 / viewport.zoom;
+            if (c.isSpindial) {
+                // Ellipse selection border only
+                ctx.beginPath();
+                ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                ctx.strokeRect(-w / 2, -h / 2, w, h);
+            }
+        }
+
+        ctx.restore();
+    }
+
+    function hitTestCypher(mx, my) {
+        for (let i = cyphers.length - 1; i >= 0; i--) {
+            const c = cyphers[i];
+            const w = c.width || DEFAULT_RUIN_SIZE;
+            const h = c.height || DEFAULT_RUIN_SIZE;
+            if (c.isSpindial) {
+                // Ellipse hit test — clicks outside the ellipse pass through
+                const cx = c.x + w / 2;
+                const cy = c.y + h / 2;
+                const rx = w / 2;
+                const ry = h / 2;
+                const dx = (mx - cx) / rx;
+                const dy = (my - cy) / ry;
+                if (dx * dx + dy * dy <= 1) return c;
+            } else {
+                // AABB hit test for regular cyphers
+                if (mx >= c.x && mx <= c.x + w && my >= c.y && my <= c.y + h) {
+                    return c;
+                }
+            }
+        }
+        return null;
+    }
+
+    function selectCypher(c) {
+        selectedCypher = c;
+        selectedRuin = null;
+        selectedText = null;
+        selectedShape = null;
+        closeRotationDial();
+        closeColorPopover();
+        closeTextInput();
+        render();
+    }
+
+    function deselectCypher() {
+        selectedCypher = null;
+        closeCypherConfig();
+        render();
+    }
+
+    function hitTestSlotBox(cypher, mx, my) {
+        if (!cypher.slots) return -1;
+        const w = cypher.width || DEFAULT_RUIN_SIZE;
+        const h = cypher.height || DEFAULT_RUIN_SIZE;
+        const cxc = cypher.x + w / 2;
+        const cyc = cypher.y + h / 2;
+        const rot = (cypher.rotation || 0) * Math.PI / 180;
+        const ruinCount = cypher.ruinCount || 5;
+        const slotSize = cypher.slotSize || 200;
+        const erx = w / 2;
+        const ery = h / 2;
+        const slotOffset = slotSize / 2 + 4;
+        // Transform mouse into cypher-local space (undo cypher center + rotation)
+        const dx = mx - cxc;
+        const dy = my - cyc;
+        const cosR = Math.cos(-rot);
+        const sinR = Math.sin(-rot);
+        const lx = dx * cosR - dy * sinR;
+        const ly = dx * sinR + dy * cosR;
+        for (let i = 0; i < ruinCount; i++) {
+            const slot = cypher.slots[i];
+            const hasImg = slot && slot.image;
+            const scale = cypher.ruinScale || 1;
+            const boxW = ((hasImg && slot.width) ? slot.width : slotSize) * scale;
+            const boxH = ((hasImg && slot.height) ? slot.height : slotSize) * scale;
+            const angle = (i * 2 * Math.PI / ruinCount) - Math.PI / 2;
+            const sx = Math.cos(angle) * (erx + slotOffset);
+            const sy = Math.sin(angle) * (ery + slotOffset);
+            if (Math.abs(lx - sx) <= boxW / 2 && Math.abs(ly - sy) <= boxH / 2) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function assignSlotImage(cypher, slotIndex) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const imagePath = 'assets/puzzles/' + file.name;
+            if (!cypher.slots) cypher.slots = [];
+            while (cypher.slots.length <= slotIndex) cypher.slots.push({ image: null, name: '', rotation: 0 });
+            loadImageClean(imagePath, (img) => {
+                cypher.slots[slotIndex] = {
+                    image: imagePath,
+                    name: file.name.replace(/\.[^.]+$/, ''),
+                    width: img.naturalWidth,
+                    height: img.naturalHeight,
+                    rotation: 0,
+                    flipped: false,
+                    lockPosition: false,
+                    lockOrientation: false,
+                    pinPosition: false
+                };
+                const key = cypher.id + '_' + slotIndex;
+                slotImageCache[key] = img;
+                render();
+                if (cypherConfigEl) showCypherConfig(cypher);
+            });
+        };
+        input.click();
+    }
+
+    function convertRuinToCypher(ruin) {
+        const ruinDef = ruinLibrary.find(r => r.id === ruin.ruinId);
+        const imagePath = ruinDef ? ruinDef.image : '';
+        const ruinCount = 5;
+        const cypher = {
+            id: 'cypher_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            image: imagePath,
+            x: ruin.x,
+            y: ruin.y,
+            width: ruin.width || DEFAULT_RUIN_SIZE,
+            height: ruin.height || DEFAULT_RUIN_SIZE,
+            rotation: ruin.rotation || 0,
+            ruinCount: ruinCount,
+            slotSize: 200,
+            name: ruinDef ? ruinDef.name : 'Cypher',
+            slots: Array.from({ length: ruinCount }, () => ({ image: null, name: '' })),
+            solvedSlots: null,
+            isSpindial: false,
+            discOrientCoupling: false,
+            linkedSpindial: false,
+            mirrorCoupling: false,
+            gateRotate: false,
+            gateFlip: false
+        };
+        // Remove from placed ruins
+        const idx = placedRuins.indexOf(ruin);
+        if (idx !== -1) placedRuins.splice(idx, 1);
+        if (selectedRuin === ruin) deselectRuin();
+        // Add to cyphers
+        cyphers.push(cypher);
+        // Load image into cypher cache
+        const ruinImg = imageCache[ruin.ruinId];
+        if (ruinImg) {
+            cypherImageCache[cypher.id] = ruinImg;
+        } else {
+            loadCypherImage(cypher);
+        }
+        selectCypher(cypher);
+        return cypher;
+    }
+
+    function showCypherConfig(cypher) {
+        closeCypherConfig();
+        if (!canvas) return;
+
+        const w = cypher.width || DEFAULT_RUIN_SIZE;
+        const h = cypher.height || DEFAULT_RUIN_SIZE;
+        const canvasRect = canvas.getBoundingClientRect();
+        const px = canvasRect.left + (cypher.x + w) * viewport.zoom + viewport.offsetX + 12;
+        const py = canvasRect.top + cypher.y * viewport.zoom + viewport.offsetY;
+
+        cypherConfigEl = document.createElement('div');
+        cypherConfigEl.className = 'ideogram-color-popover';
+        cypherConfigEl.style.position = 'fixed';
+        cypherConfigEl.style.left = px + 'px';
+        cypherConfigEl.style.top = py + 'px';
+        cypherConfigEl.style.minWidth = '200px';
+        cypherConfigEl.style.maxHeight = '80vh';
+        cypherConfigEl.style.overflowY = 'auto';
+
+        const currentRuinCount = cypher.ruinCount || 5;
+        const currentSlotSize = cypher.slotSize || 200;
+        if (!cypher.slots) cypher.slots = [];
+        while (cypher.slots.length < currentRuinCount) cypher.slots.push({ image: null, name: '' });
+
+        // Build slot grid HTML
+        const hasLinkedSpindial = cyphers.some(c => c.isSpindial && c.linkedCypherId === cypher.id);
+        let slotGridHtml = '';
+        for (let i = 0; i < currentRuinCount; i++) {
+            const slot = cypher.slots[i];
+            const hasImg = slot && slot.image;
+            const label = hasImg ? (slot.name || 'Slot ' + (i + 1)) : '+';
+            const lp = slot && slot.lockPosition;
+            const lo = slot && slot.lockOrientation;
+            const pin = slot && slot.pinPosition;
+            const pDisabled = i === 0 && hasLinkedSpindial;
+            const oDisabled = !cypher.discOrientCoupling;
+            const pinDisabled = i === 0 && hasLinkedSpindial;
+            slotGridHtml += `<div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+                <div class="cypher-slot-item" data-slot="${i}" style="
+                    width:40px; height:40px; border:1px solid ${hasImg ? '#4CAF50' : '#555'};
+                    display:flex; align-items:center; justify-content:center; cursor:pointer;
+                    position:relative; overflow:hidden; border-radius:3px;
+                    background:${hasImg ? '#1a2a1a' : '#222'};">
+                    ${hasImg ? `<img src="${slot.image}" style="width:100%;height:100%;object-fit:contain;">` : `<span style="color:#777;font-size:16px;">${label}</span>`}
+                    ${hasImg ? `<span class="cypher-slot-clear" data-slot="${i}" style="
+                        position:absolute; top:-2px; right:1px; font-size:10px; color:#ff4444;
+                        cursor:pointer; line-height:1;">&times;</span>` : ''}
+                </div>
+                ${hasImg ? `<div style="display:flex; gap:2px;">
+                    <button class="cypher-slot-lock-pos" data-slot="${i}" title="${pDisabled ? 'Slot 0 is the spindial target' : 'Lock Position'}" style="
+                        width:18px; height:16px; font-size:9px; border:1px solid ${lp ? '#4CAF50' : '#555'};
+                        background:${lp ? '#1a3a1a' : '#222'}; color:${lp ? '#4CAF50' : '#777'};
+                        cursor:${pDisabled ? 'default' : 'pointer'}; border-radius:2px; padding:0;
+                        opacity:${pDisabled ? '0.3' : '1'};">P</button>
+                    <button class="cypher-slot-lock-orient" data-slot="${i}" title="${oDisabled ? 'Requires disc-orientation coupling' : 'Lock Orientation'}" style="
+                        width:18px; height:16px; font-size:9px; border:1px solid ${lo ? '#4CAF50' : '#555'};
+                        background:${lo ? '#1a3a1a' : '#222'}; color:${lo ? '#4CAF50' : '#777'};
+                        cursor:${oDisabled ? 'default' : 'pointer'}; border-radius:2px; padding:0;
+                        opacity:${oDisabled ? '0.3' : '1'};">O</button>
+                    <button class="cypher-slot-pin" data-slot="${i}" title="${pinDisabled ? 'Slot 0 is the spindial target' : 'Pin to screen position'}" style="
+                        width:18px; height:16px; font-size:9px; border:1px solid ${pin ? '#ff6b35' : '#555'};
+                        background:${pin ? '#3a1a0a' : '#222'}; color:${pin ? '#ff6b35' : '#777'};
+                        cursor:${pinDisabled ? 'default' : 'pointer'}; border-radius:2px; padding:0;
+                        opacity:${pinDisabled ? '0.3' : '1'};">Pin</button>
+                </div>` : ''}
+            </div>`;
+        }
+
+        const hasLock = cypher.solvedSlots !== null && cypher.solvedSlots !== undefined;
+        const isSpindial = cypher.isSpindial || false;
+
+        cypherConfigEl.innerHTML = `
+            <div style="font-size:12px; font-weight:bold; color:var(--accent-gold); margin-bottom:8px;">${isSpindial ? 'Spindial' : 'Cypher'} Config</div>
+            <div style="margin-bottom:6px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Name</label>
+                <input class="panel-input" id="cypher-cfg-name" type="text" value="${cypher.name || ''}" style="width:100%; box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:6px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Size</label>
+                <div style="display:flex; gap:4px; align-items:center; margin-top:2px;">
+                    <input class="panel-input" id="cypher-cfg-w" type="number" min="10" value="${Math.round(w)}" style="width:60px;">
+                    <span style="color:var(--text-secondary);">&times;</span>
+                    <input class="panel-input" id="cypher-cfg-h" type="number" min="10" value="${Math.round(h)}" style="width:60px;">
+                </div>
+            </div>
+            <div style="margin-bottom:6px; display:flex; gap:8px;">
+                <div>
+                    <label style="font-size:11px; color:var(--text-secondary);">Ruin Count</label>
+                    <input class="panel-input" id="cypher-cfg-ruin-count" type="number" min="1" max="20" value="${currentRuinCount}" style="width:60px;">
+                </div>
+                <div>
+                    <label style="font-size:11px; color:var(--text-secondary);">Slot Size</label>
+                    <input class="panel-input" id="cypher-cfg-slot-size" type="number" min="10" max="2000" value="${currentSlotSize}" style="width:60px;">
+                </div>
+            </div>
+            <div style="margin-bottom:6px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Ruin Scale: <span id="cypher-cfg-scale-val">${(cypher.ruinScale || 1).toFixed(2)}</span></label>
+                <input type="range" id="cypher-cfg-ruin-scale" min="0.1" max="3" step="0.05" value="${cypher.ruinScale || 1}" style="width:100%;">
+            </div>
+            <div style="margin-bottom:6px; border-top:1px solid #333; padding-top:6px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Ruin Slots</label>
+                <div id="cypher-slot-grid" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+                    ${slotGridHtml}
+                </div>
+            </div>
+            <div style="margin-bottom:6px; border-top:1px solid #333; padding-top:6px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Solution</label>
+                <div style="margin-top:4px; display:flex; gap:4px; align-items:center;">
+                    ${hasLock
+                        ? `<span style="font-size:11px; color:#4CAF50;">Locked</span><button class="panel-btn" id="cypher-cfg-clear-lock" style="font-size:10px;">Clear</button><button class="panel-btn" id="cypher-cfg-reset" style="font-size:10px;">Reset</button>`
+                        : `<button class="panel-btn" id="cypher-cfg-lock">Lock Solution</button>`
+                    }
+                </div>
+            </div>
+            <div style="margin-bottom:6px; border-top:1px solid #333; padding-top:6px; ${isSpindial ? 'opacity:0.3; pointer-events:none;' : ''}">
+                <label style="font-size:11px; color:var(--accent-gold); font-weight:bold;">Ideogram Type</label>
+                ${isSpindial ? '<div style="font-size:9px; color:#666; margin-top:2px;">Coupling is configured on the disc cypher</div>' : ''}
+                <div style="margin-top:4px; display:flex; flex-direction:column; gap:4px;">
+                    <label style="font-size:11px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" id="cypher-cfg-disc-orient" ${cypher.discOrientCoupling ? 'checked' : ''}>
+                        Disc-Orientation
+                    </label>
+                    <div style="font-size:9px; color:#666; margin-left:22px; margin-top:-2px;">Disc rotation rotates all unlocked ruins 90&deg;</div>
+                    <label style="font-size:11px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; cursor:${cypher.discOrientCoupling ? 'pointer' : 'default'}; opacity:${cypher.discOrientCoupling ? '1' : '0.4'};">
+                        <input type="checkbox" id="cypher-cfg-linked-spindial" ${cypher.linkedSpindial ? 'checked' : ''} ${!cypher.discOrientCoupling ? 'disabled' : ''}>
+                        Linked Spindial
+                    </label>
+                    <div style="font-size:9px; color:#666; margin-left:22px; margin-top:-2px;">Spindial also rotates opposite ruin</div>
+                    <label style="font-size:11px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; cursor:${cypher.discOrientCoupling ? 'pointer' : 'default'}; opacity:${cypher.discOrientCoupling ? '1' : '0.4'};">
+                        <input type="checkbox" id="cypher-cfg-mirror" ${cypher.mirrorCoupling ? 'checked' : ''} ${!cypher.discOrientCoupling ? 'disabled' : ''}>
+                        Mirror
+                    </label>
+                    <div style="font-size:9px; color:#666; margin-left:22px; margin-top:-2px;">Disc rotation also flips unlocked ruins</div>
+                    <div style="border-top:1px solid #333; margin-top:6px; padding-top:6px;">
+                    <label style="font-size:11px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; cursor:${cypher.slots && cypher.slots.some(s => s.pinPosition) ? 'pointer' : 'default'}; opacity:${cypher.slots && cypher.slots.some(s => s.pinPosition) ? '1' : '0.4'};">
+                        <input type="checkbox" id="cypher-cfg-gate-rotate" ${cypher.gateRotate ? 'checked' : ''} ${!(cypher.slots && cypher.slots.some(s => s.pinPosition)) ? 'disabled' : ''}>
+                        Gate Rotate
+                    </label>
+                    <div style="font-size:9px; color:#666; margin-left:22px; margin-top:-2px;">Ruin passing pinned position gets +90&deg;</div>
+                    <label style="font-size:11px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; cursor:${cypher.slots && cypher.slots.some(s => s.pinPosition) ? 'pointer' : 'default'}; opacity:${cypher.slots && cypher.slots.some(s => s.pinPosition) ? '1' : '0.4'}; margin-top:4px;">
+                        <input type="checkbox" id="cypher-cfg-gate-flip" ${cypher.gateFlip ? 'checked' : ''} ${!(cypher.slots && cypher.slots.some(s => s.pinPosition)) ? 'disabled' : ''}>
+                        Gate Flip
+                    </label>
+                    <div style="font-size:9px; color:#666; margin-left:22px; margin-top:-2px;">Ruin passing pinned position gets flipped</div>
+                    </div>
+                    <div style="border-top:1px solid #333; margin-top:6px; padding-top:6px;">
+                        <label style="font-size:10px; color:var(--accent-gold); font-weight:bold;">Difficulty Guide</label>
+                        <div style="font-size:9px; color:#888; margin-top:4px; line-height:1.5;">
+                            <div><span style="color:#4CAF50;">Basic</span> &mdash; Disc-Orientation only</div>
+                            <div><span style="color:#ff9800;">Medium</span> &mdash; + Linked Spindial</div>
+                            <div><span style="color:#f44336;">Hard</span> &mdash; + Mirror</div>
+                            <div style="margin-top:3px;"><span style="color:#ff6b35;">Pin</span> &mdash; fixed anchor, reduces active ruins</div>
+                            <div><span style="color:#ff6b35;">Gate</span> &mdash; position-triggered effects on passing ruins</div>
+                            <div style="margin-top:3px; color:#666;"><b>P</b> lock slot content &bull; <b>O</b> exempt from coupling &bull; <b>Pin</b> fixed screen position</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ${isSpindial ? `
+            <div style="margin-bottom:6px; border-top:1px solid #333; padding-top:6px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Linked Cypher</label>
+                <select class="panel-input" id="cypher-cfg-linked" style="width:100%; box-sizing:border-box; margin-top:2px;">
+                    <option value="">— None —</option>
+                    ${cyphers.filter(c => c !== cypher && !c.isSpindial).map(c =>
+                        `<option value="${c.id}" ${cypher.linkedCypherId === c.id ? 'selected' : ''}>${c.name || c.id}</option>`
+                    ).join('')}
+                </select>
+                <div style="font-size:10px; color:var(--text-secondary); margin-top:4px;">Click &amp; drag on disc/spindial to rotate</div>
+            </div>
+            ` : ''}
+            <div style="margin-bottom:6px; border-top:1px solid #333; padding-top:6px;">
+                <label style="font-size:11px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" id="cypher-cfg-spindial" ${isSpindial ? 'checked' : ''}>
+                    Spindial
+                </label>
+            </div>
+            <div style="margin-top:8px;">
+                <button class="panel-btn" id="cypher-cfg-delete" style="color:#ff4444;">Delete</button>
+            </div>
+        `;
+
+        document.getElementById('hotspot-overlay').appendChild(cypherConfigEl);
+        cypherConfigEl.addEventListener('mousedown', (e) => e.stopPropagation());
+
+        // Bind events — name
+        const nameInput = cypherConfigEl.querySelector('#cypher-cfg-name');
+        nameInput.addEventListener('input', () => { cypher.name = nameInput.value; });
+
+        // Ruin count — also resize slots array
+        const ruinCountInput = cypherConfigEl.querySelector('#cypher-cfg-ruin-count');
+        ruinCountInput.addEventListener('input', () => {
+            const v = parseInt(ruinCountInput.value);
+            if (v >= 1 && v <= 20) {
+                cypher.ruinCount = v;
+                while (cypher.slots.length < v) cypher.slots.push({ image: null, name: '' });
+                if (cypher.slots.length > v) cypher.slots.length = v;
+                render();
+                showCypherConfig(cypher);
+            }
+        });
+
+        // Slot size
+        const slotSizeInput = cypherConfigEl.querySelector('#cypher-cfg-slot-size');
+        slotSizeInput.addEventListener('input', () => {
+            const v = parseInt(slotSizeInput.value);
+            if (v >= 10 && v <= 2000) { cypher.slotSize = v; render(); }
+        });
+
+        const ruinScaleSlider = cypherConfigEl.querySelector('#cypher-cfg-ruin-scale');
+        const ruinScaleVal = cypherConfigEl.querySelector('#cypher-cfg-scale-val');
+        ruinScaleSlider.addEventListener('input', () => {
+            cypher.ruinScale = parseFloat(ruinScaleSlider.value);
+            ruinScaleVal.textContent = cypher.ruinScale.toFixed(2);
+            render();
+        });
+
+        // Rotation buttons
+
+        // Size inputs
+        const wInput = cypherConfigEl.querySelector('#cypher-cfg-w');
+        const hInput = cypherConfigEl.querySelector('#cypher-cfg-h');
+        wInput.addEventListener('input', () => {
+            const v = parseInt(wInput.value);
+            if (v >= 10) { cypher.width = v; render(); }
+        });
+        hInput.addEventListener('input', () => {
+            const v = parseInt(hInput.value);
+            if (v >= 10) { cypher.height = v; render(); }
+        });
+
+        // Slot grid — click to assign, x to clear
+        cypherConfigEl.querySelectorAll('.cypher-slot-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (e.target.classList.contains('cypher-slot-clear')) return;
+                e.stopPropagation();
+                const idx = parseInt(item.dataset.slot);
+                assignSlotImage(cypher, idx);
+                // Re-render config after a short delay for image to load
+                setTimeout(() => showCypherConfig(cypher), 500);
+            });
+        });
+        cypherConfigEl.querySelectorAll('.cypher-slot-clear').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.slot);
+                cypher.slots[idx] = { image: null, name: '' };
+                delete slotImageCache[cypher.id + '_' + idx];
+                render();
+                showCypherConfig(cypher);
+            });
+        });
+
+        // Solution lock
+        const lockBtn = cypherConfigEl.querySelector('#cypher-cfg-lock');
+        if (lockBtn) {
+            lockBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                cypher.solvedSlots = cypher.slots.map(s => ({ ...s }));
+                showCypherConfig(cypher);
+            });
+        }
+        const clearLockBtn = cypherConfigEl.querySelector('#cypher-cfg-clear-lock');
+        if (clearLockBtn) {
+            clearLockBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                cypher.solvedSlots = null;
+                showCypherConfig(cypher);
+            });
+        }
+        const resetBtn = cypherConfigEl.querySelector('#cypher-cfg-reset');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (cypher.solvedSlots) {
+                    cypher.slots = cypher.solvedSlots.map(s => ({ ...s }));
+                    cypher.rotation = 0;
+                    rebuildSlotImageCache(cypher);
+                    render();
+                    showCypherConfig(cypher);
+                }
+            });
+        }
+
+        // Coupling checkboxes
+        const discOrientCheck = cypherConfigEl.querySelector('#cypher-cfg-disc-orient');
+        if (discOrientCheck) {
+            discOrientCheck.addEventListener('change', () => {
+                cypher.discOrientCoupling = discOrientCheck.checked;
+                if (!discOrientCheck.checked) {
+                    cypher.linkedSpindial = false;
+                    cypher.mirrorCoupling = false;
+                    // Clear O locks since they require coupling
+                    if (cypher.slots) cypher.slots.forEach(s => { if (s) s.lockOrientation = false; });
+                }
+                showCypherConfig(cypher);
+            });
+        }
+        const linkedSpindialCheck = cypherConfigEl.querySelector('#cypher-cfg-linked-spindial');
+        if (linkedSpindialCheck) {
+            linkedSpindialCheck.addEventListener('change', () => {
+                cypher.linkedSpindial = linkedSpindialCheck.checked;
+            });
+        }
+        const mirrorCheck = cypherConfigEl.querySelector('#cypher-cfg-mirror');
+        if (mirrorCheck) {
+            mirrorCheck.addEventListener('change', () => {
+                cypher.mirrorCoupling = mirrorCheck.checked;
+            });
+        }
+
+        // Per-slot lock buttons
+        const _hasLinkedSpindial = cyphers.some(c => c.isSpindial && c.linkedCypherId === cypher.id);
+        cypherConfigEl.querySelectorAll('.cypher-slot-lock-pos').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.slot);
+                if (idx === 0 && _hasLinkedSpindial) return;
+                const slot = cypher.slots[idx];
+                if (slot) {
+                    slot.lockPosition = !slot.lockPosition;
+                    if (slot.lockPosition) { slot.lockOrientation = false; slot.pinPosition = false; }
+                    showCypherConfig(cypher);
+                }
+            });
+        });
+        cypherConfigEl.querySelectorAll('.cypher-slot-lock-orient').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!cypher.discOrientCoupling) return;
+                const idx = parseInt(btn.dataset.slot);
+                const slot = cypher.slots[idx];
+                if (slot) {
+                    slot.lockOrientation = !slot.lockOrientation;
+                    if (slot.lockOrientation) { slot.lockPosition = false; slot.pinPosition = false; }
+                    showCypherConfig(cypher);
+                }
+            });
+        });
+        cypherConfigEl.querySelectorAll('.cypher-slot-pin').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.slot);
+                if (idx === 0 && _hasLinkedSpindial) return;
+                const slot = cypher.slots[idx];
+                if (slot) {
+                    const newVal = !slot.pinPosition;
+                    // Clear pin from all other slots first (only one pin allowed)
+                    cypher.slots.forEach(s => { if (s) s.pinPosition = false; });
+                    slot.pinPosition = newVal;
+                    if (slot.pinPosition) { slot.lockPosition = false; slot.lockOrientation = false; }
+                    // Auto-clear gate effects if no pin
+                    if (!cypher.slots.some(s => s.pinPosition)) {
+                        cypher.gateRotate = false;
+                        cypher.gateFlip = false;
+                    }
+                    showCypherConfig(cypher);
+                    render();
+                }
+            });
+        });
+
+        // Gate checkboxes
+        const gateRotateCheck = cypherConfigEl.querySelector('#cypher-cfg-gate-rotate');
+        if (gateRotateCheck) {
+            gateRotateCheck.addEventListener('change', () => {
+                cypher.gateRotate = gateRotateCheck.checked;
+            });
+        }
+        const gateFlipCheck = cypherConfigEl.querySelector('#cypher-cfg-gate-flip');
+        if (gateFlipCheck) {
+            gateFlipCheck.addEventListener('change', () => {
+                cypher.gateFlip = gateFlipCheck.checked;
+            });
+        }
+
+        // Spindial toggle
+        const spindialCheck = cypherConfigEl.querySelector('#cypher-cfg-spindial');
+        spindialCheck.addEventListener('change', () => {
+            cypher.isSpindial = spindialCheck.checked;
+            selectedCypher = cypher;
+            render();
+            showCypherConfig(cypher);
+        });
+
+        // Spindial linked cypher
+        const linkedSelect = cypherConfigEl.querySelector('#cypher-cfg-linked');
+        if (linkedSelect) linkedSelect.addEventListener('change', () => {
+            cypher.linkedCypherId = linkedSelect.value || null;
+        });
+
+        // Delete
+        cypherConfigEl.querySelector('#cypher-cfg-delete').addEventListener('click', (e) => {
+            e.stopPropagation();
+            cyphers = cyphers.filter(c => c !== cypher);
+            delete cypherImageCache[cypher.id];
+            // Clean up slot image cache
+            if (cypher.slots) {
+                cypher.slots.forEach((s, i) => delete slotImageCache[cypher.id + '_' + i]);
+            }
+            deselectCypher();
+        });
+    }
+
+    function rebuildSlotImageCache(cypher) {
+        if (!cypher.slots) return;
+        cypher.slots.forEach((s, i) => {
+            const key = cypher.id + '_' + i;
+            delete slotImageCache[key];
+            if (s.image) loadSlotImage(cypher, i);
+        });
+    }
+
+    function closeCypherConfig() {
+        if (cypherConfigEl) { cypherConfigEl.remove(); cypherConfigEl = null; }
+    }
+
     // ========== TOOLSET UI ==========
     function showToolset() {
         const panel = document.getElementById('ideogram-tools-panel');
@@ -783,6 +1506,10 @@ const IdeogramEditor = (() => {
                     <span class="tool-icon">&#x270E;</span>
                     <span class="tool-label">Ideogram</span>
                 </button>
+                <button class="blueprint-tool" data-tool="cypher" title="Cypher">
+                    <span class="tool-icon">&#x2609;</span>
+                    <span class="tool-label">Cypher</span>
+                </button>
             </div>
             <div id="ideogram-subtool-row" class="ideogram-subtool-row" style="display:none;"></div>
             <div style="display:flex; align-items:center; gap:8px; padding:4px 0;">
@@ -793,6 +1520,10 @@ const IdeogramEditor = (() => {
                 <label style="font-size:11px; color:var(--text-secondary); display:flex; align-items:center; gap:4px; cursor:pointer;">
                     <input type="checkbox" id="ideogram-aspect-toggle"${lockAspect ? ' checked' : ''} style="accent-color:var(--accent-orange);">
                     Lock Aspect
+                </label>
+                <label style="font-size:11px; color:var(--text-secondary); display:flex; align-items:center; gap:4px; cursor:pointer;">
+                    <input type="checkbox" id="ideogram-dev-lock"${canvasLocked ? ' checked' : ''} style="accent-color:var(--accent-orange);">
+                    Dev
                 </label>
             </div>
             <div style="display:flex; align-items:center; gap:6px; padding:4px 0;">
@@ -850,6 +1581,13 @@ const IdeogramEditor = (() => {
         if (aspectToggle) {
             aspectToggle.addEventListener('change', () => {
                 lockAspect = aspectToggle.checked;
+            });
+        }
+
+        const devLock = document.getElementById('ideogram-dev-lock');
+        if (devLock) {
+            devLock.addEventListener('change', () => {
+                canvasLocked = devLock.checked;
             });
         }
 
@@ -957,6 +1695,7 @@ const IdeogramEditor = (() => {
         closeColorPopover();
         closeTextInput();
         closeCutMenu();
+        closeCypherConfig();
         if (cutStamp) { cutStamp = null; cutStampPos = null; }
         cutSelection = null;
         cutBox = null;
@@ -967,6 +1706,9 @@ const IdeogramEditor = (() => {
         cutMouseStart = null;
         textDrawing = null;
         selectedText = null;
+        selectedCypher = null;
+        draggingCypher = null;
+        rotatingCypherDrag = null;
         resizing = null;
         selectMouseDown = null;
         shapeDrawing = null;
@@ -2054,6 +2796,23 @@ const IdeogramEditor = (() => {
         const mx = (e.clientX - rect.left - viewport.offsetX) / viewport.zoom;
         const my = (e.clientY - rect.top - viewport.offsetY) / viewport.zoom;
 
+        // Dev lock: everything frozen except drag-to-rotate on any cypher
+        if (canvasLocked) {
+            const hitCy = hitTestCypher(mx, my);
+            if (hitCy) {
+                const cw = hitCy.width || DEFAULT_RUIN_SIZE;
+                const ch = hitCy.height || DEFAULT_RUIN_SIZE;
+                const ccx = hitCy.x + cw / 2;
+                const ccy = hitCy.y + ch / 2;
+                rotatingCypherDrag = {
+                    cypher: hitCy,
+                    lastAngle: Math.atan2(my - ccy, mx - ccx),
+                    accumulated: 0
+                };
+            }
+            return;
+        }
+
         // Cut stamp placement
         if (cutStamp) {
             const ruinName = prompt('Name for this ruin:', 'Cutout');
@@ -2085,6 +2844,48 @@ const IdeogramEditor = (() => {
             cutStampPos = null;
             renderRuinLibraryList();
             render();
+            return;
+        }
+
+        // Cypher tool — click a placed ruin to convert, or click existing cypher to select
+        if (activeTool === 'cypher') {
+            // Check slot boxes on selected cypher first
+            if (selectedCypher) {
+                const slotIdx = hitTestSlotBox(selectedCypher, mx, my);
+                if (slotIdx >= 0) {
+                    assignSlotImage(selectedCypher, slotIdx);
+                    return;
+                }
+            }
+            // Then check if clicking an existing cypher
+            const hitCy = hitTestCypher(mx, my);
+            if (hitCy) {
+                if (hitCy === selectedCypher) {
+                    // Already selected — start rotate gesture
+                    const cw = hitCy.width || DEFAULT_RUIN_SIZE;
+                    const ch = hitCy.height || DEFAULT_RUIN_SIZE;
+                    const ccx = hitCy.x + cw / 2;
+                    const ccy = hitCy.y + ch / 2;
+                    rotatingCypherDrag = {
+                        cypher: hitCy,
+                        lastAngle: Math.atan2(my - ccy, mx - ccx),
+                        accumulated: 0
+                    };
+                    selectMouseDown = { elem: hitCy, type: 'cypher', startMouseX: mx, startMouseY: my };
+                    closeCypherConfig();
+                } else {
+                    selectCypher(hitCy);
+                }
+                return;
+            }
+            // Then check if clicking a placed ruin to convert
+            const hitRuin = hitTestRuin(mx, my);
+            if (hitRuin) {
+                convertRuinToCypher(hitRuin);
+                return;
+            }
+            // Click on empty space — deselect
+            if (selectedCypher) deselectCypher();
             return;
         }
 
@@ -2269,9 +3070,31 @@ const IdeogramEditor = (() => {
             return;
         }
 
+        // 3.75. Hit test cyphers (behind ruins/text/shapes)
+        const hitCy = hitTestCypher(mx, my);
+        if (hitCy) {
+            if (hitCy === selectedCypher) {
+                draggingCypher = {
+                    cypher: hitCy,
+                    startMouseX: mx, startMouseY: my,
+                    startX: hitCy.x, startY: hitCy.y
+                };
+                selectMouseDown = { elem: hitCy, type: 'cypher', startMouseX: mx, startMouseY: my };
+                closeCypherConfig();
+            } else {
+                if (selectedRuin) deselectRuin();
+                if (selectedText) { selectedText = null; closeTextInput(); }
+                if (selectedShape) { selectedShape = null; }
+                selectCypher(hitCy);
+            }
+            return;
+        }
+
         // 4. Click on empty space — deselect all
         closeRotationDial();
+        closeCypherConfig();
         if (selectedRuin) deselectRuin();
+        if (selectedCypher) deselectCypher();
         if (selectedText) { selectedText = null; closeTextInput(); render(); }
         if (selectedShape) { selectedShape = null; render(); }
     }
@@ -2323,6 +3146,9 @@ const IdeogramEditor = (() => {
             render();
             return;
         }
+
+        // Dev lock: block element movement but allow rotate gesture (handled below)
+        if (canvasLocked && !rotatingCypherDrag) return;
 
         // Shape dragging
         if (draggingShape) {
@@ -2475,6 +3301,173 @@ const IdeogramEditor = (() => {
         if (draggingRuin) {
             draggingRuin.ruin.x = snapToGrid(draggingRuin.startX + (mx - draggingRuin.startMouseX));
             draggingRuin.ruin.y = snapToGrid(draggingRuin.startY + (my - draggingRuin.startMouseY));
+            render();
+            return;
+        }
+
+        // Rotate cypher via drag gesture
+        if (rotatingCypherDrag) {
+            const rc = rotatingCypherDrag.cypher;
+            const rcw = rc.width || DEFAULT_RUIN_SIZE;
+            const rch = rc.height || DEFAULT_RUIN_SIZE;
+            const rccx = rc.x + rcw / 2;
+            const rccy = rc.y + rch / 2;
+            const curAngle = Math.atan2(my - rccy, mx - rccx);
+            let delta = curAngle - rotatingCypherDrag.lastAngle;
+            if (delta > Math.PI) delta -= 2 * Math.PI;
+            if (delta < -Math.PI) delta += 2 * Math.PI;
+            rotatingCypherDrag.lastAngle = curAngle;
+
+            if (rc.isSpindial) {
+                // Spindial: continuously rotate the ruin in slot 0 of linked cypher
+                // Also visually rotate the spindial itself
+                rotatingCypherDrag.spindialAngle = (rotatingCypherDrag.spindialAngle || 0) + delta;
+                const linked = cyphers.find(lc => lc.id === rc.linkedCypherId);
+                if (linked && linked.slots && linked.slots[0] && linked.slots[0].image) {
+                    const s0 = linked.slots[0];
+                    if (!s0.lockPosition && !s0.lockOrientation) {
+                        s0.rotation = ((s0.rotation || 0) + delta * 180 / Math.PI) % 360;
+                    }
+                    // Linked spindial coupling: also rotate opposite ruin
+                    if (linked.linkedSpindial) {
+                        const oppositeIdx = Math.floor((linked.ruinCount || 5) / 2);
+                        const opposite = linked.slots[oppositeIdx];
+                        if (opposite && opposite.image && !opposite.lockPosition && !opposite.lockOrientation) {
+                            opposite.rotation = ((opposite.rotation || 0) + delta * 180 / Math.PI) % 360;
+                        }
+                    }
+                }
+            } else {
+                // Disc: accumulate visual offset, shift slots on threshold
+                rotatingCypherDrag.accumulated += delta;
+                rotatingCypherDrag.totalAngle = (rotatingCypherDrag.totalAngle || 0) + delta;
+                const stepSize = (2 * Math.PI) / (rc.ruinCount || 5);
+                const hasLockedPos = rc.slots && rc.slots.some(s => s.lockPosition || s.pinPosition);
+                while (rotatingCypherDrag.accumulated >= stepSize) {
+                    rotatingCypherDrag.accumulated -= stepSize;
+                    if (rc.slots && rc.slots.length > 1) {
+                        if (hasLockedPos) {
+                            // Cycle only unlocked slots CW
+                            const unlocked = [];
+                            rc.slots.forEach((s, i) => { if (!s.lockPosition && !s.pinPosition) unlocked.push(i); });
+                            if (unlocked.length > 1) {
+                                const lastVal = rc.slots[unlocked[unlocked.length - 1]];
+                                for (let j = unlocked.length - 1; j > 0; j--) {
+                                    rc.slots[unlocked[j]] = rc.slots[unlocked[j - 1]];
+                                }
+                                rc.slots[unlocked[0]] = lastVal;
+                            }
+                        } else {
+                            const last = rc.slots.pop();
+                            rc.slots.unshift(last);
+                        }
+                        // Disc-orientation coupling: +90° to unlocked ruins
+                        if (rc.discOrientCoupling) {
+                            rc.slots.forEach(s => {
+                                if (s.image && !s.lockPosition && !s.pinPosition && !s.lockOrientation) {
+                                    s.rotation = ((s.rotation || 0) + 90) % 360;
+                                }
+                            });
+                        }
+                        // Mirror coupling: flip unlocked ruins
+                        if (rc.mirrorCoupling) {
+                            rc.slots.forEach(s => {
+                                if (s.image && !s.lockPosition && !s.pinPosition && !s.lockOrientation) {
+                                    s.flipped = !s.flipped;
+                                }
+                            });
+                        }
+                        // Gate effect CW: ruin that passed through pinned position
+                        if (rc.gateRotate || rc.gateFlip) {
+                            const pinIdx = rc.slots.findIndex(s => s.pinPosition);
+                            if (pinIdx >= 0) {
+                                const ul = [];
+                                rc.slots.forEach((s, i) => { if (!s.lockPosition && !s.pinPosition) ul.push(i); });
+                                // Find unlocked slot just after pinIdx in cyclic order
+                                let gateIdx = -1;
+                                for (let j = 0; j < ul.length; j++) {
+                                    if (ul[j] > pinIdx) { gateIdx = ul[j]; break; }
+                                }
+                                if (gateIdx === -1 && ul.length > 0) gateIdx = ul[0];
+                                if (gateIdx >= 0) {
+                                    const gr = rc.slots[gateIdx];
+                                    if (gr && gr.image && !gr.lockOrientation) {
+                                        if (rc.gateRotate) gr.rotation = ((gr.rotation || 0) + 90) % 360;
+                                        if (rc.gateFlip) gr.flipped = !gr.flipped;
+                                    }
+                                }
+                            }
+                        }
+                        rebuildSlotImageCache(rc);
+                    }
+                }
+                while (rotatingCypherDrag.accumulated <= -stepSize) {
+                    rotatingCypherDrag.accumulated += stepSize;
+                    if (rc.slots && rc.slots.length > 1) {
+                        if (hasLockedPos) {
+                            // Cycle only unlocked slots CCW
+                            const unlocked = [];
+                            rc.slots.forEach((s, i) => { if (!s.lockPosition && !s.pinPosition) unlocked.push(i); });
+                            if (unlocked.length > 1) {
+                                const firstVal = rc.slots[unlocked[0]];
+                                for (let j = 0; j < unlocked.length - 1; j++) {
+                                    rc.slots[unlocked[j]] = rc.slots[unlocked[j + 1]];
+                                }
+                                rc.slots[unlocked[unlocked.length - 1]] = firstVal;
+                            }
+                        } else {
+                            const first = rc.slots.shift();
+                            rc.slots.push(first);
+                        }
+                        // Disc-orientation coupling: -90° to unlocked ruins
+                        if (rc.discOrientCoupling) {
+                            rc.slots.forEach(s => {
+                                if (s.image && !s.lockPosition && !s.pinPosition && !s.lockOrientation) {
+                                    s.rotation = ((s.rotation || 0) - 90 + 360) % 360;
+                                }
+                            });
+                        }
+                        // Mirror coupling: flip unlocked ruins
+                        if (rc.mirrorCoupling) {
+                            rc.slots.forEach(s => {
+                                if (s.image && !s.lockPosition && !s.pinPosition && !s.lockOrientation) {
+                                    s.flipped = !s.flipped;
+                                }
+                            });
+                        }
+                        // Gate effect CCW: ruin that passed through pinned position
+                        if (rc.gateRotate || rc.gateFlip) {
+                            const pinIdx = rc.slots.findIndex(s => s.pinPosition);
+                            if (pinIdx >= 0) {
+                                const ul = [];
+                                rc.slots.forEach((s, i) => { if (!s.lockPosition && !s.pinPosition) ul.push(i); });
+                                // Find unlocked slot just before pinIdx in cyclic order
+                                let gateIdx = -1;
+                                for (let j = ul.length - 1; j >= 0; j--) {
+                                    if (ul[j] < pinIdx) { gateIdx = ul[j]; break; }
+                                }
+                                if (gateIdx === -1 && ul.length > 0) gateIdx = ul[ul.length - 1];
+                                if (gateIdx >= 0) {
+                                    const gr = rc.slots[gateIdx];
+                                    if (gr && gr.image && !gr.lockOrientation) {
+                                        if (rc.gateRotate) gr.rotation = ((gr.rotation || 0) - 90 + 360) % 360;
+                                        if (rc.gateFlip) gr.flipped = !gr.flipped;
+                                    }
+                                }
+                            }
+                        }
+                        rebuildSlotImageCache(rc);
+                    }
+                }
+            }
+            render();
+            return;
+        }
+
+        // Drag cypher
+        if (draggingCypher) {
+            draggingCypher.cypher.x = snapToGrid(draggingCypher.startX + (mx - draggingCypher.startMouseX));
+            draggingCypher.cypher.y = snapToGrid(draggingCypher.startY + (my - draggingCypher.startMouseY));
             render();
             return;
         }
@@ -2635,6 +3628,54 @@ const IdeogramEditor = (() => {
             selectMouseDown = null;
             render();
             if (wasClick && selectedRuin) showRotationDial(selectedRuin);
+            return;
+        }
+
+        // Finalize cypher rotate gesture — snap spindial ruin to cardinal direction
+        if (rotatingCypherDrag) {
+            const rc = rotatingCypherDrag.cypher;
+            const wasClick = selectMouseDown && Math.abs(mx - selectMouseDown.startMouseX) < 3 && Math.abs(my - selectMouseDown.startMouseY) < 3;
+            // Spindial: snap linked slot 0 ruin to nearest 90° and commit spindial visual rotation
+            if (rc.isSpindial) {
+                const linked = cyphers.find(lc => lc.id === rc.linkedCypherId);
+                if (linked && linked.slots && linked.slots[0] && linked.slots[0].image) {
+                    const raw0 = ((linked.slots[0].rotation || 0) % 360 + 360) % 360;
+                    linked.slots[0].rotation = Math.round(raw0 / 90) * 90 % 360;
+                    // Also snap opposite ruin if linked spindial coupling is active
+                    if (linked.linkedSpindial) {
+                        const oppositeIdx = Math.floor((linked.ruinCount || 5) / 2);
+                        const opposite = linked.slots[oppositeIdx];
+                        if (opposite && opposite.image && !opposite.lockPosition && !opposite.lockOrientation) {
+                            const rawOpp = ((opposite.rotation || 0) % 360 + 360) % 360;
+                            opposite.rotation = Math.round(rawOpp / 90) * 90 % 360;
+                        }
+                    }
+                }
+                // Snap spindial visual rotation to nearest 90°
+                const totalRot = ((rc.rotation || 0) + (rotatingCypherDrag.spindialAngle || 0) * 180 / Math.PI);
+                const snapped = Math.round(((totalRot % 360) + 360) % 360 / 90) * 90 % 360;
+                rc.rotation = snapped;
+            } else {
+                // Snap disc visual rotation to nearest step angle
+                const stepDeg = 360 / (rc.ruinCount || 5);
+                const totalRot = ((rc.rotation || 0) + (rotatingCypherDrag.totalAngle || 0) * 180 / Math.PI);
+                const snapped = Math.round(((totalRot % 360) + 360) % 360 / stepDeg) * stepDeg % 360;
+                rc.rotation = snapped;
+            }
+            rotatingCypherDrag = null;
+            selectMouseDown = null;
+            render();
+            if (wasClick && selectedCypher) showCypherConfig(selectedCypher);
+            return;
+        }
+
+        // Finalize cypher drag — click vs drag
+        if (draggingCypher) {
+            const wasClick = selectMouseDown && Math.abs(mx - selectMouseDown.startMouseX) < 3 && Math.abs(my - selectMouseDown.startMouseY) < 3;
+            draggingCypher = null;
+            selectMouseDown = null;
+            render();
+            if (wasClick && selectedCypher) showCypherConfig(selectedCypher);
         }
     }
 
@@ -2653,6 +3694,7 @@ const IdeogramEditor = (() => {
     // ========== SELECTION ==========
     function selectRuin(ruin) {
         selectedRuin = ruin;
+        if (selectedCypher) { selectedCypher = null; closeCypherConfig(); }
         render();
         // Config menu (rotation dial) shown on click of already-selected ruin, not on first select
         // Update IsoMark preview if a plate is active
@@ -2763,12 +3805,21 @@ const IdeogramEditor = (() => {
             clearRects: [],
             textElements: [],
             drawnShapes: [],
+            cyphers: [],
             viewport: { offsetX: 0, offsetY: 0, zoom: 1 },
             metadata: { created: Date.now(), modified: Date.now() }
         };
         ideograms.push(ideogram);
         switchIdeogram(id);
         return ideogram;
+    }
+
+    function deepCopyCypher(c) {
+        return {
+            ...c,
+            slots: (c.slots || []).map(s => ({ ...s })),
+            solvedSlots: c.solvedSlots ? c.solvedSlots.map(s => ({ ...s })) : null
+        };
     }
 
     function switchIdeogram(id) {
@@ -2780,13 +3831,18 @@ const IdeogramEditor = (() => {
         clearRects = (ig.clearRects || []).map(c => ({ ...c }));
         textElements = (ig.textElements || []).map(t => ({ ...t }));
         drawnShapes = (ig.drawnShapes || []).map(s => ({ ...s }));
+        cyphers = (ig.cyphers || []).map(c => deepCopyCypher(c));
         viewport = { ...(ig.viewport || { offsetX: 0, offsetY: 0, zoom: 1 }) };
         selectedRuin = null;
         selectedText = null;
         selectedShape = null;
+        selectedCypher = null;
+        preloadAllCypherImages();
+        preloadAllSlotImages();
         closeRotationDial();
         closeColorPopover();
         closeTextInput();
+        closeCypherConfig();
         if (active) render();
         refreshSidebarList();
     }
@@ -2799,6 +3855,7 @@ const IdeogramEditor = (() => {
         ig.clearRects = clearRects.map(c => ({ ...c }));
         ig.textElements = textElements.map(t => ({ ...t }));
         ig.drawnShapes = drawnShapes.map(s => ({ ...s }));
+        ig.cyphers = cyphers.map(c => deepCopyCypher(c));
         ig.viewport = { ...viewport };
         ig.metadata.modified = Date.now();
     }
@@ -2814,12 +3871,15 @@ const IdeogramEditor = (() => {
                 clearRects = [];
                 textElements = [];
                 drawnShapes = [];
+                cyphers = [];
                 selectedRuin = null;
                 selectedText = null;
                 selectedShape = null;
+                selectedCypher = null;
                 closeRotationDial();
                 closeColorPopover();
                 closeTextInput();
+                closeCypherConfig();
                 if (active) render();
             }
         }
@@ -2843,6 +3903,7 @@ const IdeogramEditor = (() => {
                 clearRects: (ig.clearRects || []).map(c => ({ ...c })),
                 textElements: (ig.textElements || []).map(t => ({ ...t })),
                 drawnShapes: (ig.drawnShapes || []).map(s => ({ ...s })),
+                cyphers: (ig.cyphers || []).map(c => deepCopyCypher(c)),
                 viewport: { ...(ig.viewport || { offsetX: 0, offsetY: 0, zoom: 1 }) },
                 metadata: { ...(ig.metadata || { created: Date.now(), modified: Date.now() }) }
             }))
@@ -2858,11 +3919,16 @@ const IdeogramEditor = (() => {
             clearRects: (ig.clearRects || []).map(c => ({ ...c })),
             textElements: (ig.textElements || []).map(t => ({ ...t })),
             drawnShapes: (ig.drawnShapes || []).map(s => ({ ...s })),
+            cyphers: (ig.cyphers || []).map(c => deepCopyCypher(c)),
             viewport: { ...(ig.viewport || { offsetX: 0, offsetY: 0, zoom: 1 }) },
             metadata: { ...(ig.metadata || { created: Date.now(), modified: Date.now() }) }
         }));
         preloadAllRuinImages();
-        if (ideograms.length > 0 && !currentIdeogramId) {
+        // Clear stale caches and reset so switchIdeogram always runs on import
+        cypherImageCache = {};
+        slotImageCache = {};
+        currentIdeogramId = null;
+        if (ideograms.length > 0) {
             switchIdeogram(ideograms[0].id);
         }
     }

@@ -671,15 +671,11 @@ const Toolbar = (() => {
                 input.accept = 'image/*';
                 input.addEventListener('change', () => {
                     if (!input.files || !input.files[0]) return;
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        const ig = IdeogramEditor.getAllIdeograms().find(i => i.id === thumb.dataset.id);
-                        if (ig) {
-                            ig.thumbnail = reader.result;
-                            refreshIdeogramList();
-                        }
-                    };
-                    reader.readAsDataURL(input.files[0]);
+                    const ig = IdeogramEditor.getAllIdeograms().find(i => i.id === thumb.dataset.id);
+                    if (ig) {
+                        ig.thumbnail = 'assets/puzzles/' + input.files[0].name;
+                        refreshIdeogramList();
+                    }
                 });
                 input.click();
             });
