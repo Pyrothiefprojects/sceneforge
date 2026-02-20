@@ -101,8 +101,19 @@ The spindial is the player's primary tool throughout the game — it's issued at
 - Symbols can be used together, so the readout looks complex
 - But a player who's been paying attention to environmental cryo symbolism will recognize the correct orientation
 
+## Puzzle Design — Forge Machine
+
+The forge machine is a self-contained workstation the player interacts with to create and manage ruin plates. It contains three components in one machine:
+
+- **IsoPress** — stamps a ruin onto a blank plate to create an isomarked plate (the plate press). Editor tool built: place asset, link to disc cypher, shows ruin at visual top (12 o'clock) with rotation/mirror transforms. Puzzle scene registration still needed.
+- **Lathe** — clears/resets an isomarked plate back to blank. Editor tool exists as placeable asset; dev-mode clear behavior deferred for future expansion.
+- **Screen** — a display with a slot for the player's spindial, allowing them to cycle through ruins and view their collection
+
+The player loads their spindial into the screen slot to browse collected ruins, uses the lathe to clear plates, and the isopress to forge new ones. The machine is a central hub for plate management alongside the cypher display used for solving.
+
 ## Known Issues
 - **Allow Delete checkboxes share state** — all Allow Delete toggles (Scenes, Inventory, Puzzles, Ideograms) control the same `delete-enabled` class on the panel body. Checking one enables delete buttons across all sections. Works in practice since only one section is visible at a time, but the puzzle/ideogram views share a panel — checking Allow Delete in one persists when toggling to the other.
+- **Disc/ruin orbit speed mismatch** — during drag-to-rotate, ruin boxes orbit at a different visual speed than the disc image because the disc rotation is computed from the mouse angular delta relative to the disc center, while ruins are positioned at their own orbital radius. Both receive the same angular delta but the visual perception differs. Ideally ruins should appear locked to the disc surface. Deferred for now — may revisit with a unified rotation model where ruins follow the disc image directly.
 
 ## Roadmap
 
@@ -126,11 +137,12 @@ All inventory items and puzzle assets are lined up for the current puzzle set.
   - **Blank workspace** (current) — freeform canvas for building ideogram geometry, placing ruins, cutting, compositing, and general design work
   - [ ] **IsoMark Workspace** — a pre-organized workspace with designated areas for each puzzle component; selecting a card opens this structured layout where the puzzle components live together. The workflow: build an ideogram → cut ruins out of it → stamp ruin plates on the press → clear plates on the lathe → reference the codex → use the spindial to cycle/flip/rotate ruins into position
   - Puzzle components (registered as puzzle asset types, similar to combo lock):
-    - [ ] **IsoMark Plate Press** — mostly built via the IsoMark compositor (applies a ruin onto an empty plate to create an isomarked plate); needs puzzle scene and asset type registration
-    - [ ] **IsoMark Plate Lathe** — clears the ruin from an isomarked plate (resets it to blank); needs puzzle scene and asset type registration
+    - [~] **IsoMark Plate Press** — editor tool built (place asset, link to disc cypher, shows ruin at visual 12 o'clock with rotation/mirror transforms via stable imageCache lookup); still needs puzzle scene and asset type registration
+    - [~] **IsoMark Plate Lathe** — editor tool exists as placeable asset; dev-mode clear behavior deferred; still needs puzzle scene and asset type registration
     - [x] **Spindial Mechanism** — built as the Cypher tool: disc cypher with slot boxes for cycling ruins, spindial overlay for rotating the linked ruin, drag-to-rotate gesture, cardinal direction snapping, dev lock mode, solve lock, 3-tier coupling system (disc-orientation, linked spindial, mirror) with per-slot lock controls and smooth coupling animation
     - [ ] **Codex Display** — displays the ideogram geometry for the player to reference while working
   - Plate images already exist as assets; press and lathe just need puzzle scenes and registration as puzzle parts
+- [ ] **Rename ideogram tools** — current tool names in the ideogram section are confusing; needs a clarity pass to make tool purposes more obvious
 - [ ] **Two-finger scroll rotation** — hover over a cypher/spindial in dev lock mode and use two-finger trackpad scroll to rotate it (alternative to click-drag-rotate); uses the existing `wheel` event
 
 ## Build Log
@@ -144,4 +156,5 @@ All inventory items and puzzle assets are lined up for the current puzzle set.
 - **Session 8:** Feb 17–18, ~13 hours — Ideogram editor (ruin library with multi-file select, radial wheel placement at natural image size, rotation dial with mirror/delete, free-form resize with 8 handles and aspect ratio lock, color tool with 5 modes and popover, two-phase cut tool with move/cut context menu and offscreen capture, text tool with inline editor and word-wrap, save ruin as PNG with File System Access API, zoom slider with ctx.scale transform, custom dark-themed scrollbars with content-aware panning and mouse wheel support, grid toggle controlling snap behavior, tool locking, movable text elements, ideogram cards with CRUD, data persistence in save/load/export, puzzle panel view swapping, IsoMark preview fix, Create Ideogram tool with Line and Circle sub-tools (angle-constrained lines, ring circles, shape selection/drag/resize/delete, color/thickness popover, Save Ideogram as PNG), polygon cut tool (N-point polygon selection with grid snap, canvas clipping for non-rectangular cuts), removed Ruin Box tool)
 - **Session 9:** Feb 18–19, ~8 hours — Cypher puzzle tool (disc cypher with ellipse-positioned slot boxes and angular skew, spindial variant with linked rotation, ruin assignment via file picker, ruin scale slider, solve lock save/clear, config panel with slot grid), drag-to-rotate gesture (angular delta tracking with discrete slot shifting for discs and continuous rotation for spindials, dragOffset for smooth visual feedback), cardinal direction snapping for spindial rotation on release, Dev lock mode (canvas freeze checkbox, rotation-only interaction without selection), save persistence fix (file path storage pattern replacing dataURLs to survive stripDataUrls export filter, loadIdeogramData cache clearing and switchIdeogram fix), ellipse hit testing for spindials, dead code cleanup (removed animation function and rotate button handlers)
 - **Session 10:** Feb 19, ~6 hours — Cypher coupling system (disc-orientation coupling rotates all unlocked ruins 90° on disc shift, linked spindial coupling rotates opposite ruin, mirror coupling flips unlocked ruins on disc shift), 3-tier difficulty (basic/medium/hard), per-slot lock controls (P locks slot content, O exempts from coupling, Pin fixes ruin to screen position), pin position with gate effects (gate rotate +90° and gate flip on ruin passing pinned position), smart greying logic (invalid combos auto-disabled), difficulty legend in config panel, smooth orientDragOffset animation for coupling during drag, unified cypher/spindial config panel, documentation restructure (README split into docs/ folder with 5 linked pages)
-- **Total build time:** ~70 hours (so far)
+- **Session 11:** Feb 20, ~5 hours (continuing) — Press overlay system (stable imageCache lookup via ruinLibrary matching instead of broken slotImageCache, visual top slot calculation using disc rotation for 12 o'clock position, rotation/mirror transform display on press), spindial topIndex fix (mousemove and snap target the visual 12 o'clock slot instead of hardcoded slots[0]), Press and Lathe editor tools (place asset, convert, boundary box, config panel, save/load), cleanup (removed pressRuinCache, updateLinkedPresses, currentOverlay, reverted rebuildSlotImageCache to simple version)
+- **Total build time:** ~75 hours (so far)

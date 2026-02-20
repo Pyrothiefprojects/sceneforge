@@ -532,7 +532,7 @@ window.PARALLAX_PROJECT ={
     },
     "metadata": {
       "created": 1771308000000,
-      "modified": 1771510708070
+      "modified": 1771572644113
     }
   },
   "ideogramData": {
@@ -581,6 +581,11 @@ window.PARALLAX_PROJECT ={
         "id": "ruin_1771503273644_40o9",
         "name": "Cryoideogram",
         "image": "assets/puzzles/cryoideogram.png"
+      },
+      {
+        "id": "ruin_1771572615384_cd2g",
+        "name": "IsoMarkRuin",
+        "image": "assets/puzzles/IsoMarkRuin.png"
       }
     ],
     "ideograms": [
@@ -756,15 +761,28 @@ window.PARALLAX_PROJECT ={
           }
         ],
         "viewport": {
-          "offsetX": 224.16666666666669,
-          "offsetY": 100,
+          "offsetX": 312.1666666666667,
+          "offsetY": 190.33333333333326,
           "zoom": 0.5
         },
         "metadata": {
           "created": 1771503169529,
-          "modified": 1771510708070
+          "modified": 1771572644114
         },
-        "thumbnail": "assets/puzzles/cryoideogram.png"
+        "thumbnail": "assets/puzzles/cryoideogram.png",
+        "presses": [
+          {
+            "id": "press_1771572622070_id4n",
+            "image": "assets/puzzles/IsoMarkRuin.png",
+            "x": -212.33333333333337,
+            "y": 864,
+            "width": 758,
+            "height": 838,
+            "name": "IsoMarkRuin",
+            "linkedCypherId": "cypher_1771503216753_x3oj"
+          }
+        ],
+        "lathes": []
       }
     ]
   }

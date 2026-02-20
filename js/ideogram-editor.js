@@ -6,7 +6,7 @@ const IdeogramEditor = (() => {
     let ruinLibrary = [];
     let placedRuins = [];
     let selectedRuin = null;
-    let activeTool = 'select'; // 'select' | 'addRuin' | 'color' | 'cut' | 'text' | 'createIdeogram' | 'cypher'
+    let activeTool = 'select'; // 'select' | 'addRuin' | 'color' | 'cut' | 'text' | 'createIdeogram' | 'cypher' | 'press' | 'lathe'
     let cyphers = [];              // [{ id, image, x, y, width, height, rotation, ruinCount, name }]
     let selectedCypher = null;
     let draggingCypher = null;
@@ -14,6 +14,7 @@ const IdeogramEditor = (() => {
     let slotImageCache = {};       // 'cypherId_slotIndex' → loaded Image object
     let cypherConfigEl = null;     // DOM element for cypher config popover
     let rotatingCypherDrag = null;  // { cypher, lastAngle, accumulated }
+    let cypherSnapAnim = null;      // { cypher, fromRot, toRot, delta, fromAccum, start, duration }
     let viewport = { offsetX: 0, offsetY: 0, zoom: 1.0 };
     let draggingRuin = null;
     let rotationDialEl = null;
@@ -54,6 +55,16 @@ const IdeogramEditor = (() => {
     let scrollbarHEl = null;  // horizontal scrollbar track
     let scrollbarVEl = null;  // vertical scrollbar track
     let scrollDragging = null; // { axis: 'h'|'v', startMouse, startOffset }
+    let presses = [];              // [{ id, image, x, y, width, height, name, linkedCypherId }]
+    let lathes = [];               // [{ id, image, x, y, width, height, name }]
+    let selectedPress = null;
+    let selectedLathe = null;
+    let draggingPress = null;
+    let draggingLathe = null;
+    let pressImageCache = {};      // id → loaded Image object
+    let latheImageCache = {};      // id → loaded Image object
+    let pressConfigEl = null;      // DOM element for press config popover
+    let latheConfigEl = null;      // DOM element for lathe config popover
     let canvasLocked = false;  // dev mode: lock canvas panning
 
     // ========== CONSTANTS ==========
@@ -161,14 +172,20 @@ const IdeogramEditor = (() => {
         closeCutMenu();
         closeRuinRadialWheel();
         closeCypherConfig();
+        closePressConfig();
+        closeLatheConfig();
         selectedRuin = null;
         selectedText = null;
         selectedShape = null;
         selectedCypher = null;
+        selectedPress = null;
+        selectedLathe = null;
         draggingRuin = null;
         draggingText = null;
         draggingShape = null;
         draggingCypher = null;
+        draggingPress = null;
+        draggingLathe = null;
         rotatingCypherDrag = null;
         shapeDrawing = null;
         resizing = null;
@@ -487,6 +504,8 @@ const IdeogramEditor = (() => {
 
         renderGrid();
         cyphers.forEach(c => renderCypher(c));
+        presses.forEach(p => renderPress(p));
+        lathes.forEach(l => renderLathe(l));
         placedRuins.forEach(ruin => renderPlacedRuin(ruin));
         textElements.forEach(te => renderTextElement(te));
         drawnShapes.forEach(shape => renderDrawnShape(shape));
@@ -664,6 +683,8 @@ const IdeogramEditor = (() => {
     // ========== RESIZE HANDLES ==========
     function getSelectedElement() {
         if (selectedCypher) return selectedCypher;
+        if (selectedPress) return selectedPress;
+        if (selectedLathe) return selectedLathe;
         if (selectedRuin) return selectedRuin;
         if (selectedText) return selectedText;
         if (selectedShape) return selectedShape;
@@ -801,6 +822,31 @@ const IdeogramEditor = (() => {
         });
     }
 
+    // ========== PRESS / LATHE IMAGE LOADING ==========
+    function loadPressImage(press) {
+        if (!press || pressImageCache[press.id]) return;
+        loadImageClean(press.image, (img) => {
+            pressImageCache[press.id] = img;
+            render();
+        });
+    }
+
+    function preloadAllPressImages() {
+        presses.forEach(p => loadPressImage(p));
+    }
+
+    function loadLatheImage(lathe) {
+        if (!lathe || latheImageCache[lathe.id]) return;
+        loadImageClean(lathe.image, (img) => {
+            latheImageCache[lathe.id] = img;
+            render();
+        });
+    }
+
+    function preloadAllLatheImages() {
+        lathes.forEach(l => loadLatheImage(l));
+    }
+
     function renderCypher(c) {
         const img = cypherImageCache[c.id];
         if (!img) return;
@@ -814,8 +860,9 @@ const IdeogramEditor = (() => {
 
         ctx.save();
         ctx.translate(cx, cy);
-        // Visual rotation during drag: spindial uses spindialAngle, disc uses totalAngle (continuous)
+        // Visual rotation during drag or snap animation
         const isDragTarget = rotatingCypherDrag && rotatingCypherDrag.cypher === c;
+        const isAnimTarget = cypherSnapAnim && cypherSnapAnim.cypher === c;
         let visualDragRot = 0;
         if (isDragTarget) {
             if (c.isSpindial) {
@@ -823,21 +870,28 @@ const IdeogramEditor = (() => {
             } else {
                 visualDragRot = rotatingCypherDrag.totalAngle || 0;
             }
+        } else if (isAnimTarget) {
+            const t = Math.min(1, (performance.now() - cypherSnapAnim.start) / cypherSnapAnim.duration);
+            const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+            const currentRot = cypherSnapAnim.fromRot + cypherSnapAnim.delta * eased;
+            visualDragRot = (currentRot - (c.rotation || 0)) * Math.PI / 180;
         }
         ctx.rotate((c.rotation || 0) * Math.PI / 180 + visualDragRot);
         ctx.drawImage(img, -w / 2, -h / 2, w, h);
 
-        // Dashed ellipse overlay to distinguish from ruins (matches bounding box)
-        const spindialColor = c.isSpindial ? 'rgba(255,107,157,0.5)' : 'rgba(255,165,0,0.5)';
-        ctx.strokeStyle = isSelected ? '#00e5ff' : spindialColor;
-        ctx.lineWidth = (isSelected ? 3 : 2) / viewport.zoom;
-        ctx.setLineDash(isSelected ? [] : [6 / viewport.zoom, 4 / viewport.zoom]);
-        const rx = w / 2 - 2;
-        const ry = h / 2 - 2;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        // Dashed ellipse overlay — editor only
+        if (!canvasLocked) {
+            const spindialColor = c.isSpindial ? 'rgba(255,107,157,0.5)' : 'rgba(255,165,0,0.5)';
+            ctx.strokeStyle = isSelected ? '#00e5ff' : spindialColor;
+            ctx.lineWidth = (isSelected ? 3 : 2) / viewport.zoom;
+            ctx.setLineDash(isSelected ? [] : [6 / viewport.zoom, 4 / viewport.zoom]);
+            const rx = w / 2 - 2;
+            const ry = h / 2 - 2;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
 
         // Ruin slot boxes — only for non-spindial cyphers
         if (!c.isSpindial) {
@@ -845,17 +899,46 @@ const IdeogramEditor = (() => {
             const slotSize = c.slotSize || 200;
             const erx = w / 2;
             const ery = h / 2;
-            const slotOffset = slotSize / 2 + 4;
+            const proximity = c.ruinProximity || 0;
+            const slotOffset = slotSize / 2 + 4 + proximity;
             ctx.strokeStyle = isSelected ? '#00e5ff' : 'rgba(255,165,0,0.7)';
             ctx.lineWidth = 1.5 / viewport.zoom;
             const slots = c.slots || [];
             const isDragging = rotatingCypherDrag && rotatingCypherDrag.cypher === c;
-            const dragOffset = isDragging ? rotatingCypherDrag.accumulated : 0;
+            let dragOffset = isDragging ? rotatingCypherDrag.accumulated : 0;
+            if (!isDragging && isAnimTarget) {
+                const t = Math.min(1, (performance.now() - cypherSnapAnim.start) / cypherSnapAnim.duration);
+                const eased = 1 - Math.pow(1 - t, 3);
+                dragOffset = cypherSnapAnim.fromAccum * (1 - eased);
+            }
             // Smooth orientation offset: fractional progress toward next step
             const stepSize = (2 * Math.PI) / ruinCount;
-            const fracAngle = isDragging ? (rotatingCypherDrag.accumulated || 0) : 0;
-            const orientDragOffset = (isDragging && c.discOrientCoupling && !c.isSpindial)
+            let fracAngle = isDragging ? (rotatingCypherDrag.accumulated || 0) : 0;
+            if (!isDragging && isAnimTarget) {
+                const t = Math.min(1, (performance.now() - cypherSnapAnim.start) / cypherSnapAnim.duration);
+                const eased = 1 - Math.pow(1 - t, 3);
+                fracAngle = cypherSnapAnim.fromAccum * (1 - eased);
+            }
+            const orientDragOffset = ((isDragging || isAnimTarget) && c.discOrientCoupling && !c.isSpindial)
                 ? (fracAngle / stepSize) * (Math.PI / 2) : 0;
+            // Static radial boundary lines — editor only
+            if (!canvasLocked) {
+                ctx.save();
+                ctx.rotate(-((c.rotation || 0) * Math.PI / 180 + visualDragRot));
+                ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+                ctx.lineWidth = 3 / viewport.zoom;
+                for (let i = 0; i < ruinCount; i++) {
+                    const angle = ((i + 0.5) * stepSize) - Math.PI / 2;
+                    const endX = Math.cos(angle) * (erx + slotOffset + slotSize * (c.ruinScale || 1) * 0.6);
+                    const endY = Math.sin(angle) * (ery + slotOffset + slotSize * (c.ruinScale || 1) * 0.6);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
             for (let i = 0; i < ruinCount; i++) {
                 const slot = slots[i];
                 const isPinned = slot && slot.pinPosition;
@@ -890,9 +973,12 @@ const IdeogramEditor = (() => {
                         }
                     }
                 }
-                ctx.strokeStyle = hasImage ? '#4CAF50' : (isSelected ? '#00e5ff' : 'rgba(255,165,0,0.7)');
-                ctx.lineWidth = 1.5 / viewport.zoom;
-                ctx.strokeRect(-boxW / 2, -boxH / 2, boxW, boxH);
+                // Slot box outlines — editor only
+                if (!canvasLocked) {
+                    ctx.strokeStyle = hasImage ? '#4CAF50' : (isSelected ? '#00e5ff' : 'rgba(255,165,0,0.7)');
+                    ctx.lineWidth = 1.5 / viewport.zoom;
+                    ctx.strokeRect(-boxW / 2, -boxH / 2, boxW, boxH);
+                }
                 ctx.restore();
             }
         }
@@ -955,6 +1041,303 @@ const IdeogramEditor = (() => {
         render();
     }
 
+    // ========== PRESS / LATHE RENDERING ==========
+    function renderPress(p) {
+        const img = pressImageCache[p.id];
+        if (!img) return;
+        if (img.complete === false) return;
+        const w = p.width || DEFAULT_RUIN_SIZE;
+        const h = p.height || DEFAULT_RUIN_SIZE;
+        const isSelected = p === selectedPress;
+
+        ctx.save();
+        ctx.translate(p.x + w / 2, p.y + h / 2);
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+
+        // Draw the ruin visually at position 1 (top) of the linked disc
+        if (p.linkedCypherId) {
+            const disc = cyphers.find(c => c.id === p.linkedCypherId);
+            if (disc && disc.slots && disc.slots.length > 0) {
+                const ruinCount = disc.ruinCount || 5;
+                const stepDeg = 360 / ruinCount;
+                const topIndex = ((Math.round(-(disc.rotation || 0) / stepDeg) % ruinCount) + ruinCount) % ruinCount;
+                const topSlot = disc.slots[topIndex];
+                if (topSlot && topSlot.image) {
+                    const ruinDef = ruinLibrary.find(r => r.image === topSlot.image);
+                    const ruinImg = ruinDef ? imageCache[ruinDef.id] : slotImageCache[disc.id + '_' + topIndex];
+                    if (ruinImg && ruinImg.complete !== false) {
+                        const rw = ruinImg.naturalWidth || ruinImg.width;
+                        const rh = ruinImg.naturalHeight || ruinImg.height;
+                        const maxW = w * 0.7;
+                        const maxH = h * 0.7;
+                        const scale = Math.min(maxW / rw, maxH / rh, 1);
+                        const dw = rw * scale;
+                        const dh = rh * scale;
+                        const slotRot = (topSlot.rotation || 0) * Math.PI / 180;
+                        const isFlipped = topSlot.flipped || false;
+                        if (slotRot || isFlipped) {
+                            ctx.save();
+                            if (isFlipped) ctx.scale(-1, 1);
+                            if (slotRot) ctx.rotate(slotRot);
+                            ctx.drawImage(ruinImg, -dw / 2, -dh / 2, dw, dh);
+                            ctx.restore();
+                        } else {
+                            ctx.drawImage(ruinImg, -dw / 2, -dh / 2, dw, dh);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (isSelected) {
+            ctx.strokeStyle = '#00e5ff';
+            ctx.lineWidth = 3 / viewport.zoom;
+            ctx.strokeRect(-w / 2, -h / 2, w, h);
+        }
+        ctx.restore();
+    }
+
+    function renderLathe(l) {
+        const img = latheImageCache[l.id];
+        if (!img) return;
+        if (img.complete === false) return;
+        const w = l.width || DEFAULT_RUIN_SIZE;
+        const h = l.height || DEFAULT_RUIN_SIZE;
+        const isSelected = l === selectedLathe;
+
+        ctx.save();
+        ctx.translate(l.x + w / 2, l.y + h / 2);
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+
+        if (isSelected) {
+            ctx.strokeStyle = '#00e5ff';
+            ctx.lineWidth = 3 / viewport.zoom;
+            ctx.strokeRect(-w / 2, -h / 2, w, h);
+        }
+        ctx.restore();
+    }
+
+    function hitTestPress(mx, my) {
+        for (let i = presses.length - 1; i >= 0; i--) {
+            const p = presses[i];
+            const w = p.width || DEFAULT_RUIN_SIZE;
+            const h = p.height || DEFAULT_RUIN_SIZE;
+            if (mx >= p.x && mx <= p.x + w && my >= p.y && my <= p.y + h) return p;
+        }
+        return null;
+    }
+
+    function hitTestLathe(mx, my) {
+        for (let i = lathes.length - 1; i >= 0; i--) {
+            const l = lathes[i];
+            const w = l.width || DEFAULT_RUIN_SIZE;
+            const h = l.height || DEFAULT_RUIN_SIZE;
+            if (mx >= l.x && mx <= l.x + w && my >= l.y && my <= l.y + h) return l;
+        }
+        return null;
+    }
+
+    function selectPress(p) {
+        selectedPress = p;
+        selectedRuin = null;
+        selectedText = null;
+        selectedShape = null;
+        selectedCypher = null;
+        selectedLathe = null;
+        closeRotationDial();
+        closeColorPopover();
+        closeTextInput();
+        closeCypherConfig();
+        closeLatheConfig();
+        render();
+    }
+
+    function deselectPress() {
+        selectedPress = null;
+        closePressConfig();
+        render();
+    }
+
+    function selectLathe(l) {
+        selectedLathe = l;
+        selectedRuin = null;
+        selectedText = null;
+        selectedShape = null;
+        selectedCypher = null;
+        selectedPress = null;
+        closeRotationDial();
+        closeColorPopover();
+        closeTextInput();
+        closeCypherConfig();
+        closePressConfig();
+        render();
+    }
+
+    function deselectLathe() {
+        selectedLathe = null;
+        closeLatheConfig();
+        render();
+    }
+
+    function convertRuinToPress(ruin) {
+        const ruinDef = ruinLibrary.find(r => r.id === ruin.ruinId);
+        const imagePath = ruinDef ? ruinDef.image : '';
+        const press = {
+            id: 'press_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            image: imagePath,
+            x: ruin.x,
+            y: ruin.y,
+            width: ruin.width || DEFAULT_RUIN_SIZE,
+            height: ruin.height || DEFAULT_RUIN_SIZE,
+            name: ruinDef ? ruinDef.name : 'Press',
+            linkedCypherId: null
+        };
+        const idx = placedRuins.indexOf(ruin);
+        if (idx !== -1) placedRuins.splice(idx, 1);
+        if (selectedRuin === ruin) deselectRuin();
+        presses.push(press);
+        const ruinImg = imageCache[ruin.ruinId];
+        if (ruinImg) {
+            pressImageCache[press.id] = ruinImg;
+        } else {
+            loadPressImage(press);
+        }
+        selectPress(press);
+        showPressConfig(press);
+        return press;
+    }
+
+    function convertRuinToLathe(ruin) {
+        const ruinDef = ruinLibrary.find(r => r.id === ruin.ruinId);
+        const imagePath = ruinDef ? ruinDef.image : '';
+        const lathe = {
+            id: 'lathe_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            image: imagePath,
+            x: ruin.x,
+            y: ruin.y,
+            width: ruin.width || DEFAULT_RUIN_SIZE,
+            height: ruin.height || DEFAULT_RUIN_SIZE,
+            name: ruinDef ? ruinDef.name : 'Lathe'
+        };
+        const idx = placedRuins.indexOf(ruin);
+        if (idx !== -1) placedRuins.splice(idx, 1);
+        if (selectedRuin === ruin) deselectRuin();
+        lathes.push(lathe);
+        const ruinImg = imageCache[ruin.ruinId];
+        if (ruinImg) {
+            latheImageCache[lathe.id] = ruinImg;
+        } else {
+            loadLatheImage(lathe);
+        }
+        selectLathe(lathe);
+        showLatheConfig(lathe);
+        return lathe;
+    }
+
+    // ========== PRESS / LATHE CONFIG PANELS ==========
+    function showPressConfig(press) {
+        closePressConfig();
+        if (!canvas) return;
+        const w = press.width || DEFAULT_RUIN_SIZE;
+        const canvasRect = canvas.getBoundingClientRect();
+        const px = canvasRect.left + (press.x + w) * viewport.zoom + viewport.offsetX + 12;
+        const py = canvasRect.top + press.y * viewport.zoom + viewport.offsetY;
+
+        const discCyphers = cyphers.filter(c => !c.isSpindial);
+        const panel = document.createElement('div');
+        panel.className = 'ideogram-color-popover';
+        panel.style.position = 'fixed';
+        panel.style.left = px + 'px';
+        panel.style.top = py + 'px';
+        panel.style.minWidth = '180px';
+        panel.style.zIndex = '9999';
+        panel.innerHTML = `
+            <div style="font-size:12px; font-weight:bold; color:var(--accent-gold); margin-bottom:8px;">Press Config</div>
+            <label style="font-size:11px; color:var(--text-secondary);">Name
+                <input class="panel-input" id="press-cfg-name" value="${press.name || ''}" style="width:100%; box-sizing:border-box;">
+            </label>
+            <div style="margin-top:8px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Linked Cypher
+                    <select class="panel-input" id="press-cfg-linked" style="width:100%; box-sizing:border-box; margin-top:2px;">
+                        <option value="">— None —</option>
+                        ${discCyphers.map(c =>
+                            `<option value="${c.id}" ${press.linkedCypherId === c.id ? 'selected' : ''}>${c.name || c.id}</option>`
+                        ).join('')}
+                    </select>
+                </label>
+            </div>
+            <div style="margin-top:8px; text-align:right;">
+                <button class="panel-btn" id="press-cfg-delete" style="color:#ff4444;">Delete</button>
+            </div>
+        `;
+        document.body.appendChild(panel);
+        pressConfigEl = panel;
+
+        const nameInput = panel.querySelector('#press-cfg-name');
+        if (nameInput) nameInput.addEventListener('input', () => { press.name = nameInput.value; });
+
+        const linkedSelect = panel.querySelector('#press-cfg-linked');
+        if (linkedSelect) linkedSelect.addEventListener('change', () => {
+            press.linkedCypherId = linkedSelect.value || null;
+            render();
+        });
+
+        const deleteBtn = panel.querySelector('#press-cfg-delete');
+        if (deleteBtn) deleteBtn.addEventListener('click', () => {
+            const idx = presses.indexOf(press);
+            if (idx !== -1) presses.splice(idx, 1);
+            delete pressImageCache[press.id];
+            deselectPress();
+        });
+    }
+
+    function closePressConfig() {
+        if (pressConfigEl) { pressConfigEl.remove(); pressConfigEl = null; }
+    }
+
+    function showLatheConfig(lathe) {
+        closeLatheConfig();
+        if (!canvas) return;
+        const w = lathe.width || DEFAULT_RUIN_SIZE;
+        const canvasRect = canvas.getBoundingClientRect();
+        const px = canvasRect.left + (lathe.x + w) * viewport.zoom + viewport.offsetX + 12;
+        const py = canvasRect.top + lathe.y * viewport.zoom + viewport.offsetY;
+
+        const panel = document.createElement('div');
+        panel.className = 'ideogram-color-popover';
+        panel.style.position = 'fixed';
+        panel.style.left = px + 'px';
+        panel.style.top = py + 'px';
+        panel.style.minWidth = '180px';
+        panel.style.zIndex = '9999';
+        panel.innerHTML = `
+            <div style="font-size:12px; font-weight:bold; color:var(--accent-gold); margin-bottom:8px;">Lathe Config</div>
+            <label style="font-size:11px; color:var(--text-secondary);">Name
+                <input class="panel-input" id="lathe-cfg-name" value="${lathe.name || ''}" style="width:100%; box-sizing:border-box;">
+            </label>
+            <div style="margin-top:8px; text-align:right;">
+                <button class="panel-btn" id="lathe-cfg-delete" style="color:#ff4444;">Delete</button>
+            </div>
+        `;
+        document.body.appendChild(panel);
+        latheConfigEl = panel;
+
+        const nameInput = panel.querySelector('#lathe-cfg-name');
+        if (nameInput) nameInput.addEventListener('input', () => { lathe.name = nameInput.value; });
+
+        const deleteBtn = panel.querySelector('#lathe-cfg-delete');
+        if (deleteBtn) deleteBtn.addEventListener('click', () => {
+            const idx = lathes.indexOf(lathe);
+            if (idx !== -1) lathes.splice(idx, 1);
+            delete latheImageCache[lathe.id];
+            deselectLathe();
+        });
+    }
+
+    function closeLatheConfig() {
+        if (latheConfigEl) { latheConfigEl.remove(); latheConfigEl = null; }
+    }
+
     function hitTestSlotBox(cypher, mx, my) {
         if (!cypher.slots) return -1;
         const w = cypher.width || DEFAULT_RUIN_SIZE;
@@ -966,7 +1349,8 @@ const IdeogramEditor = (() => {
         const slotSize = cypher.slotSize || 200;
         const erx = w / 2;
         const ery = h / 2;
-        const slotOffset = slotSize / 2 + 4;
+        const proximity = cypher.ruinProximity || 0;
+        const slotOffset = slotSize / 2 + 4 + proximity;
         // Transform mouse into cypher-local space (undo cypher center + rotation)
         const dx = mx - cxc;
         const dy = my - cyc;
@@ -1161,6 +1545,10 @@ const IdeogramEditor = (() => {
                 <label style="font-size:11px; color:var(--text-secondary);">Ruin Scale: <span id="cypher-cfg-scale-val">${(cypher.ruinScale || 1).toFixed(2)}</span></label>
                 <input type="range" id="cypher-cfg-ruin-scale" min="0.1" max="3" step="0.05" value="${cypher.ruinScale || 1}" style="width:100%;">
             </div>
+            <div style="margin-bottom:6px;">
+                <label style="font-size:11px; color:var(--text-secondary);">Proximity: <span id="cypher-cfg-proximity-val">${(cypher.ruinProximity || 0).toFixed(0)}</span></label>
+                <input type="range" id="cypher-cfg-proximity" min="-300" max="300" step="5" value="${cypher.ruinProximity || 0}" style="width:100%;">
+            </div>
             <div style="margin-bottom:6px; border-top:1px solid #333; padding-top:6px;">
                 <label style="font-size:11px; color:var(--text-secondary);">Ruin Slots</label>
                 <div id="cypher-slot-grid" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
@@ -1275,6 +1663,14 @@ const IdeogramEditor = (() => {
         ruinScaleSlider.addEventListener('input', () => {
             cypher.ruinScale = parseFloat(ruinScaleSlider.value);
             ruinScaleVal.textContent = cypher.ruinScale.toFixed(2);
+            render();
+        });
+
+        const proximitySlider = cypherConfigEl.querySelector('#cypher-cfg-proximity');
+        const proximityVal = cypherConfigEl.querySelector('#cypher-cfg-proximity-val');
+        proximitySlider.addEventListener('input', () => {
+            cypher.ruinProximity = parseFloat(proximitySlider.value);
+            proximityVal.textContent = cypher.ruinProximity.toFixed(0);
             render();
         });
 
@@ -1510,6 +1906,14 @@ const IdeogramEditor = (() => {
                     <span class="tool-icon">&#x2609;</span>
                     <span class="tool-label">Cypher</span>
                 </button>
+                <button class="blueprint-tool" data-tool="press" title="Press">
+                    <span class="tool-icon">&#x2B22;</span>
+                    <span class="tool-label">Press</span>
+                </button>
+                <button class="blueprint-tool" data-tool="lathe" title="Lathe">
+                    <span class="tool-icon">&#x2B21;</span>
+                    <span class="tool-label">Lathe</span>
+                </button>
             </div>
             <div id="ideogram-subtool-row" class="ideogram-subtool-row" style="display:none;"></div>
             <div style="display:flex; align-items:center; gap:8px; padding:4px 0;">
@@ -1543,23 +1947,6 @@ const IdeogramEditor = (() => {
                 </div>
                 <div id="ideogram-ruin-list" class="ideogram-ruin-list"></div>
             </div>
-            <div class="panel-divider-h"></div>
-            <div class="ideogram-isomark-section">
-                <span class="panel-label">IsoMark</span>
-                <div style="margin-top:6px; display:flex; gap:4px; align-items:center;">
-                    <button class="panel-btn" id="isomark-plate-upload">Set Plate</button>
-                    <span id="isomark-plate-label" style="font-size:10px; color:var(--text-secondary);">No plate set</span>
-                    <input type="file" id="isomark-plate-file" accept="image/png,image/*" style="display:none">
-                </div>
-                <div style="margin-top:8px;">
-                    <canvas id="isomark-preview" width="200" height="200" style="border:1px solid var(--accent-rust); border-radius:4px; background:#1a1a1a; display:block; width:100%; height:auto;"></canvas>
-                </div>
-                <div style="margin-top:4px; font-size:10px; color:var(--text-secondary);">Click a ruin to overlay on plate.</div>
-                <div style="margin-top:6px; display:flex; gap:4px;">
-                    <button class="panel-btn primary" id="isomark-save" disabled>Save Plate</button>
-                    <button class="panel-btn" id="isomark-clear">Clear</button>
-                </div>
-            </div>
         `;
 
         body.querySelectorAll('.blueprint-tool').forEach(btn => {
@@ -1588,6 +1975,7 @@ const IdeogramEditor = (() => {
         if (devLock) {
             devLock.addEventListener('change', () => {
                 canvasLocked = devLock.checked;
+                render();
             });
         }
 
@@ -1648,35 +2036,6 @@ const IdeogramEditor = (() => {
             window.ideogramToolsDragHandlersAdded = true;
         }
 
-        // IsoMark bindings
-        const isoUploadBtn = document.getElementById('isomark-plate-upload');
-        const isoFileInput = document.getElementById('isomark-plate-file');
-        if (isoUploadBtn && isoFileInput) {
-            isoUploadBtn.addEventListener('click', () => isoFileInput.click());
-            isoFileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        isomarkPlateImage = img;
-                        isomarkPlatePath = ev.target.result;
-                        renderIsomarkPreview();
-                        updateIsomarkSaveBtn();
-                        const label = document.getElementById('isomark-plate-label');
-                        if (label) label.textContent = file.name;
-                    };
-                    img.src = ev.target.result;
-                };
-                reader.readAsDataURL(file);
-                isoFileInput.value = '';
-            });
-        }
-        const isoSaveBtn = document.getElementById('isomark-save');
-        if (isoSaveBtn) isoSaveBtn.addEventListener('click', saveIsomarkPlate);
-        const isoClearBtn = document.getElementById('isomark-clear');
-        if (isoClearBtn) isoClearBtn.addEventListener('click', clearIsomark);
 
         panel.classList.remove('hidden');
         toolsetEl = body;
@@ -1709,6 +2068,12 @@ const IdeogramEditor = (() => {
         selectedCypher = null;
         draggingCypher = null;
         rotatingCypherDrag = null;
+        selectedPress = null;
+        draggingPress = null;
+        closePressConfig();
+        selectedLathe = null;
+        draggingLathe = null;
+        closeLatheConfig();
         resizing = null;
         selectMouseDown = null;
         shapeDrawing = null;
@@ -2804,6 +3169,10 @@ const IdeogramEditor = (() => {
                 const ch = hitCy.height || DEFAULT_RUIN_SIZE;
                 const ccx = hitCy.x + cw / 2;
                 const ccy = hitCy.y + ch / 2;
+                if (cypherSnapAnim && cypherSnapAnim.cypher === hitCy) {
+                    hitCy.rotation = cypherSnapAnim.toRot;
+                    cypherSnapAnim = null;
+                }
                 rotatingCypherDrag = {
                     cypher: hitCy,
                     lastAngle: Math.atan2(my - ccy, mx - ccx),
@@ -2862,6 +3231,10 @@ const IdeogramEditor = (() => {
             if (hitCy) {
                 if (hitCy === selectedCypher) {
                     // Already selected — start rotate gesture
+                    if (cypherSnapAnim && cypherSnapAnim.cypher === hitCy) {
+                        hitCy.rotation = cypherSnapAnim.toRot;
+                        cypherSnapAnim = null;
+                    }
                     const cw = hitCy.width || DEFAULT_RUIN_SIZE;
                     const ch = hitCy.height || DEFAULT_RUIN_SIZE;
                     const ccx = hitCy.x + cw / 2;
@@ -2886,6 +3259,58 @@ const IdeogramEditor = (() => {
             }
             // Click on empty space — deselect
             if (selectedCypher) deselectCypher();
+            return;
+        }
+
+        // Press tool — click a placed ruin to convert, or click existing press to select
+        if (activeTool === 'press') {
+            const hitP = hitTestPress(mx, my);
+            if (hitP) {
+                if (hitP === selectedPress) {
+                    draggingPress = {
+                        press: hitP,
+                        startMouseX: mx, startMouseY: my,
+                        startX: hitP.x, startY: hitP.y
+                    };
+                    selectMouseDown = { elem: hitP, type: 'press', startMouseX: mx, startMouseY: my };
+                    closePressConfig();
+                } else {
+                    selectPress(hitP);
+                }
+                return;
+            }
+            const hitRuin = hitTestRuin(mx, my);
+            if (hitRuin) {
+                convertRuinToPress(hitRuin);
+                return;
+            }
+            if (selectedPress) deselectPress();
+            return;
+        }
+
+        // Lathe tool — click a placed ruin to convert, or click existing lathe to select
+        if (activeTool === 'lathe') {
+            const hitL = hitTestLathe(mx, my);
+            if (hitL) {
+                if (hitL === selectedLathe) {
+                    draggingLathe = {
+                        lathe: hitL,
+                        startMouseX: mx, startMouseY: my,
+                        startX: hitL.x, startY: hitL.y
+                    };
+                    selectMouseDown = { elem: hitL, type: 'lathe', startMouseX: mx, startMouseY: my };
+                    closeLatheConfig();
+                } else {
+                    selectLathe(hitL);
+                }
+                return;
+            }
+            const hitRuin = hitTestRuin(mx, my);
+            if (hitRuin) {
+                convertRuinToLathe(hitRuin);
+                return;
+            }
+            if (selectedLathe) deselectLathe();
             return;
         }
 
@@ -3090,11 +3515,59 @@ const IdeogramEditor = (() => {
             return;
         }
 
+        // 3.8. Hit test presses
+        const hitP = hitTestPress(mx, my);
+        if (hitP) {
+            if (hitP === selectedPress) {
+                draggingPress = {
+                    press: hitP,
+                    startMouseX: mx, startMouseY: my,
+                    startX: hitP.x, startY: hitP.y
+                };
+                selectMouseDown = { elem: hitP, type: 'press', startMouseX: mx, startMouseY: my };
+                closePressConfig();
+            } else {
+                if (selectedRuin) deselectRuin();
+                if (selectedText) { selectedText = null; closeTextInput(); }
+                if (selectedShape) { selectedShape = null; }
+                if (selectedCypher) deselectCypher();
+                if (selectedLathe) deselectLathe();
+                selectPress(hitP);
+            }
+            return;
+        }
+
+        // 3.85. Hit test lathes
+        const hitL = hitTestLathe(mx, my);
+        if (hitL) {
+            if (hitL === selectedLathe) {
+                draggingLathe = {
+                    lathe: hitL,
+                    startMouseX: mx, startMouseY: my,
+                    startX: hitL.x, startY: hitL.y
+                };
+                selectMouseDown = { elem: hitL, type: 'lathe', startMouseX: mx, startMouseY: my };
+                closeLatheConfig();
+            } else {
+                if (selectedRuin) deselectRuin();
+                if (selectedText) { selectedText = null; closeTextInput(); }
+                if (selectedShape) { selectedShape = null; }
+                if (selectedCypher) deselectCypher();
+                if (selectedPress) deselectPress();
+                selectLathe(hitL);
+            }
+            return;
+        }
+
         // 4. Click on empty space — deselect all
         closeRotationDial();
         closeCypherConfig();
+        closePressConfig();
+        closeLatheConfig();
         if (selectedRuin) deselectRuin();
         if (selectedCypher) deselectCypher();
+        if (selectedPress) deselectPress();
+        if (selectedLathe) deselectLathe();
         if (selectedText) { selectedText = null; closeTextInput(); render(); }
         if (selectedShape) { selectedShape = null; render(); }
     }
@@ -3319,13 +3792,16 @@ const IdeogramEditor = (() => {
             rotatingCypherDrag.lastAngle = curAngle;
 
             if (rc.isSpindial) {
-                // Spindial: continuously rotate the ruin in slot 0 of linked cypher
+                // Spindial: continuously rotate the ruin at the visual top (12 o'clock) of linked cypher
                 // Also visually rotate the spindial itself
                 rotatingCypherDrag.spindialAngle = (rotatingCypherDrag.spindialAngle || 0) + delta;
                 const linked = cyphers.find(lc => lc.id === rc.linkedCypherId);
-                if (linked && linked.slots && linked.slots[0] && linked.slots[0].image) {
-                    const s0 = linked.slots[0];
-                    if (!s0.lockPosition && !s0.lockOrientation) {
+                if (linked && linked.slots && linked.slots.length > 0) {
+                    const _rc = linked.ruinCount || 5;
+                    const _step = 360 / _rc;
+                    const topIdx = ((Math.round(-(linked.rotation || 0) / _step) % _rc) + _rc) % _rc;
+                    const s0 = linked.slots[topIdx];
+                    if (s0 && s0.image && !s0.lockPosition && !s0.lockOrientation) {
                         s0.rotation = ((s0.rotation || 0) + delta * 180 / Math.PI) % 360;
                     }
                     // Linked spindial coupling: also rotate opposite ruin
@@ -3468,6 +3944,22 @@ const IdeogramEditor = (() => {
         if (draggingCypher) {
             draggingCypher.cypher.x = snapToGrid(draggingCypher.startX + (mx - draggingCypher.startMouseX));
             draggingCypher.cypher.y = snapToGrid(draggingCypher.startY + (my - draggingCypher.startMouseY));
+            render();
+            return;
+        }
+
+        // Drag press
+        if (draggingPress) {
+            draggingPress.press.x = snapToGrid(draggingPress.startX + (mx - draggingPress.startMouseX));
+            draggingPress.press.y = snapToGrid(draggingPress.startY + (my - draggingPress.startMouseY));
+            render();
+            return;
+        }
+
+        // Drag lathe
+        if (draggingLathe) {
+            draggingLathe.lathe.x = snapToGrid(draggingLathe.startX + (mx - draggingLathe.startMouseX));
+            draggingLathe.lathe.y = snapToGrid(draggingLathe.startY + (my - draggingLathe.startMouseY));
             render();
             return;
         }
@@ -3635,31 +4127,115 @@ const IdeogramEditor = (() => {
         if (rotatingCypherDrag) {
             const rc = rotatingCypherDrag.cypher;
             const wasClick = selectMouseDown && Math.abs(mx - selectMouseDown.startMouseX) < 3 && Math.abs(my - selectMouseDown.startMouseY) < 3;
-            // Spindial: snap linked slot 0 ruin to nearest 90° and commit spindial visual rotation
+            // Spindial: smooth snap linked ruin(s) and spindial visual rotation to nearest 90°
             if (rc.isSpindial) {
                 const linked = cyphers.find(lc => lc.id === rc.linkedCypherId);
-                if (linked && linked.slots && linked.slots[0] && linked.slots[0].image) {
-                    const raw0 = ((linked.slots[0].rotation || 0) % 360 + 360) % 360;
-                    linked.slots[0].rotation = Math.round(raw0 / 90) * 90 % 360;
-                    // Also snap opposite ruin if linked spindial coupling is active
+                const spindialAngleDeg = (rotatingCypherDrag.spindialAngle || 0) * 180 / Math.PI;
+                const fromRot = (rc.rotation || 0) + spindialAngleDeg;
+                const snapped = Math.round(((fromRot % 360 + 360) % 360) / 90) * 90 % 360;
+                let delta = snapped - fromRot;
+                while (delta > 180) delta -= 360;
+                while (delta < -180) delta += 360;
+                // Collect ruin rotation animation targets
+                const ruinAnims = [];
+                if (linked && linked.slots && linked.slots.length > 0) {
+                    const _rc2 = linked.ruinCount || 5;
+                    const _step2 = 360 / _rc2;
+                    const topIdx2 = ((Math.round(-(linked.rotation || 0) / _step2) % _rc2) + _rc2) % _rc2;
+                    const topSlot = linked.slots[topIdx2];
+                    if (topSlot && topSlot.image) {
+                        const raw0 = ((topSlot.rotation || 0) % 360 + 360) % 360;
+                        const snapped0 = Math.round(raw0 / 90) * 90 % 360;
+                        let d0 = snapped0 - raw0;
+                        while (d0 > 180) d0 -= 360;
+                        while (d0 < -180) d0 += 360;
+                        ruinAnims.push({ slot: topSlot, fromRot: raw0, delta: d0, toRot: snapped0 });
+                    }
                     if (linked.linkedSpindial) {
                         const oppositeIdx = Math.floor((linked.ruinCount || 5) / 2);
                         const opposite = linked.slots[oppositeIdx];
                         if (opposite && opposite.image && !opposite.lockPosition && !opposite.lockOrientation) {
                             const rawOpp = ((opposite.rotation || 0) % 360 + 360) % 360;
-                            opposite.rotation = Math.round(rawOpp / 90) * 90 % 360;
+                            const snappedOpp = Math.round(rawOpp / 90) * 90 % 360;
+                            let dOpp = snappedOpp - rawOpp;
+                            while (dOpp > 180) dOpp -= 360;
+                            while (dOpp < -180) dOpp += 360;
+                            ruinAnims.push({ slot: opposite, fromRot: rawOpp, delta: dOpp, toRot: snappedOpp });
                         }
                     }
                 }
-                // Snap spindial visual rotation to nearest 90°
-                const totalRot = ((rc.rotation || 0) + (rotatingCypherDrag.spindialAngle || 0) * 180 / Math.PI);
-                const snapped = Math.round(((totalRot % 360) + 360) % 360 / 90) * 90 % 360;
+                if (Math.abs(delta) > 0.1 || ruinAnims.some(r => Math.abs(r.delta) > 0.1)) {
+                    cypherSnapAnim = {
+                        cypher: rc, fromRot: fromRot, toRot: snapped, delta: delta,
+                        fromAccum: 0, ruinAnims: ruinAnims,
+                        start: performance.now(), duration: 180
+                    };
+                    rotatingCypherDrag = null;
+                    selectMouseDown = null;
+                    (function animateSnap() {
+                        if (!cypherSnapAnim) return;
+                        const t = (performance.now() - cypherSnapAnim.start) / cypherSnapAnim.duration;
+                        if (t >= 1) {
+                            cypherSnapAnim.cypher.rotation = cypherSnapAnim.toRot;
+                            cypherSnapAnim.ruinAnims.forEach(ra => { ra.slot.rotation = ra.toRot; });
+                            cypherSnapAnim = null;
+                            render();
+                            return;
+                        }
+                        const eased = 1 - Math.pow(1 - t, 3);
+                        cypherSnapAnim.ruinAnims.forEach(ra => {
+                            ra.slot.rotation = ra.fromRot + ra.delta * eased;
+                        });
+                        render();
+                        requestAnimationFrame(animateSnap);
+                    })();
+                    if (wasClick && selectedCypher) showCypherConfig(selectedCypher);
+                    return;
+                }
                 rc.rotation = snapped;
+                ruinAnims.forEach(ra => { ra.slot.rotation = ra.toRot; });
             } else {
-                // Snap disc visual rotation to nearest step angle
+                // Snap disc to nearest step based on ruin box center position
                 const stepDeg = 360 / (rc.ruinCount || 5);
-                const totalRot = ((rc.rotation || 0) + (rotatingCypherDrag.totalAngle || 0) * 180 / Math.PI);
+                const totalAngleDeg = (rotatingCypherDrag.totalAngle || 0) * 180 / Math.PI;
+                const accumulatedDeg = (rotatingCypherDrag.accumulated || 0) * 180 / Math.PI;
+                const ruinDisplacementDeg = totalAngleDeg + accumulatedDeg;
+                const baseRot = (rc.rotation || 0);
+                const totalRot = baseRot + ruinDisplacementDeg;
                 const snapped = Math.round(((totalRot % 360) + 360) % 360 / stepDeg) * stepDeg % 360;
+                // Smooth animation from release position to snapped position
+                const fromRot = baseRot + totalAngleDeg;
+                let delta = snapped - fromRot;
+                // Shortest arc
+                while (delta > 180) delta -= 360;
+                while (delta < -180) delta += 360;
+                if (Math.abs(delta) > 0.1) {
+                    cypherSnapAnim = {
+                        cypher: rc,
+                        fromRot: fromRot,
+                        toRot: snapped,
+                        delta: delta,
+                        fromAccum: rotatingCypherDrag.accumulated || 0,
+                        start: performance.now(),
+                        duration: 180
+                    };
+                    rotatingCypherDrag = null;
+                    selectMouseDown = null;
+                    (function animateSnap() {
+                        if (!cypherSnapAnim) return;
+                        const t = (performance.now() - cypherSnapAnim.start) / cypherSnapAnim.duration;
+                        if (t >= 1) {
+                            cypherSnapAnim.cypher.rotation = cypherSnapAnim.toRot;
+                            cypherSnapAnim = null;
+                            render();
+                            return;
+                        }
+                        render();
+                        requestAnimationFrame(animateSnap);
+                    })();
+                    if (wasClick && selectedCypher) showCypherConfig(selectedCypher);
+                    return;
+                }
                 rc.rotation = snapped;
             }
             rotatingCypherDrag = null;
@@ -3676,6 +4252,24 @@ const IdeogramEditor = (() => {
             selectMouseDown = null;
             render();
             if (wasClick && selectedCypher) showCypherConfig(selectedCypher);
+        }
+
+        // Finalize press drag — click vs drag
+        if (draggingPress) {
+            const wasClick = selectMouseDown && Math.abs(mx - selectMouseDown.startMouseX) < 3 && Math.abs(my - selectMouseDown.startMouseY) < 3;
+            draggingPress = null;
+            selectMouseDown = null;
+            render();
+            if (wasClick && selectedPress) showPressConfig(selectedPress);
+        }
+
+        // Finalize lathe drag — click vs drag
+        if (draggingLathe) {
+            const wasClick = selectMouseDown && Math.abs(mx - selectMouseDown.startMouseX) < 3 && Math.abs(my - selectMouseDown.startMouseY) < 3;
+            draggingLathe = null;
+            selectMouseDown = null;
+            render();
+            if (wasClick && selectedLathe) showLatheConfig(selectedLathe);
         }
     }
 
@@ -3832,17 +4426,25 @@ const IdeogramEditor = (() => {
         textElements = (ig.textElements || []).map(t => ({ ...t }));
         drawnShapes = (ig.drawnShapes || []).map(s => ({ ...s }));
         cyphers = (ig.cyphers || []).map(c => deepCopyCypher(c));
+        presses = (ig.presses || []).map(p => ({ ...p }));
+        lathes = (ig.lathes || []).map(l => ({ ...l }));
         viewport = { ...(ig.viewport || { offsetX: 0, offsetY: 0, zoom: 1 }) };
         selectedRuin = null;
         selectedText = null;
         selectedShape = null;
         selectedCypher = null;
+        selectedPress = null;
+        selectedLathe = null;
         preloadAllCypherImages();
         preloadAllSlotImages();
+        preloadAllPressImages();
+        preloadAllLatheImages();
         closeRotationDial();
         closeColorPopover();
         closeTextInput();
         closeCypherConfig();
+        closePressConfig();
+        closeLatheConfig();
         if (active) render();
         refreshSidebarList();
     }
@@ -3856,6 +4458,8 @@ const IdeogramEditor = (() => {
         ig.textElements = textElements.map(t => ({ ...t }));
         ig.drawnShapes = drawnShapes.map(s => ({ ...s }));
         ig.cyphers = cyphers.map(c => deepCopyCypher(c));
+        ig.presses = presses.map(p => ({ ...p }));
+        ig.lathes = lathes.map(l => ({ ...l }));
         ig.viewport = { ...viewport };
         ig.metadata.modified = Date.now();
     }
@@ -3872,14 +4476,20 @@ const IdeogramEditor = (() => {
                 textElements = [];
                 drawnShapes = [];
                 cyphers = [];
+                presses = [];
+                lathes = [];
                 selectedRuin = null;
                 selectedText = null;
                 selectedShape = null;
                 selectedCypher = null;
+                selectedPress = null;
+                selectedLathe = null;
                 closeRotationDial();
                 closeColorPopover();
                 closeTextInput();
                 closeCypherConfig();
+                closePressConfig();
+                closeLatheConfig();
                 if (active) render();
             }
         }
@@ -3904,6 +4514,8 @@ const IdeogramEditor = (() => {
                 textElements: (ig.textElements || []).map(t => ({ ...t })),
                 drawnShapes: (ig.drawnShapes || []).map(s => ({ ...s })),
                 cyphers: (ig.cyphers || []).map(c => deepCopyCypher(c)),
+                presses: (ig.presses || []).map(p => ({ ...p })),
+                lathes: (ig.lathes || []).map(l => ({ ...l })),
                 viewport: { ...(ig.viewport || { offsetX: 0, offsetY: 0, zoom: 1 }) },
                 metadata: { ...(ig.metadata || { created: Date.now(), modified: Date.now() }) }
             }))
@@ -3920,6 +4532,8 @@ const IdeogramEditor = (() => {
             textElements: (ig.textElements || []).map(t => ({ ...t })),
             drawnShapes: (ig.drawnShapes || []).map(s => ({ ...s })),
             cyphers: (ig.cyphers || []).map(c => deepCopyCypher(c)),
+            presses: (ig.presses || []).map(p => ({ ...p })),
+            lathes: (ig.lathes || []).map(l => ({ ...l })),
             viewport: { ...(ig.viewport || { offsetX: 0, offsetY: 0, zoom: 1 }) },
             metadata: { ...(ig.metadata || { created: Date.now(), modified: Date.now() }) }
         }));
@@ -3927,6 +4541,8 @@ const IdeogramEditor = (() => {
         // Clear stale caches and reset so switchIdeogram always runs on import
         cypherImageCache = {};
         slotImageCache = {};
+        pressImageCache = {};
+        latheImageCache = {};
         currentIdeogramId = null;
         if (ideograms.length > 0) {
             switchIdeogram(ideograms[0].id);
